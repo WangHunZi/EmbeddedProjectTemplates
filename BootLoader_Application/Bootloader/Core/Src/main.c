@@ -58,7 +58,12 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define VECT_TAB_OFFSET      0x00000000UL
+#define APPLICATION_ADDRESS  0x90000000UL
 
+typedef void (*pFunction)(void);
+
+pFunction JumpToApplication;
 /* USER CODE END 0 */
 
 /**
@@ -91,21 +96,24 @@ int main(void) {
     MX_QUADSPI_Init();
     MX_SPI4_Init();
     MX_TIM1_Init();
-    MX_SPI1_Init();
     /* USER CODE BEGIN 2 */
     LCD_Test();
-    LCD_ShowString(0, 10, ST7735Ctx.Width, 16, 12, (uint8_t *) "Test OfW25Q64");
-
-    uint8_t textWrite[11] = "WangLaoEr";
-    uint8_t textGet[11] = {0};
-
     w25qxx_Init();
-    w25qxx_EnterQPI();
-    extern uint16_t w25qxx_ID;
-    sprintf((char *) &textGet, "ID is:%x", w25qxx_ID);
 
-    LCD_ShowString(0, 30, ST7735Ctx.Width, 16, 12, textGet);
-    LCD_ShowString(0, 50, ST7735Ctx.Width, 16, 12, textWrite);
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL = 0;
+    for (uint8_t i = 0; i < 8; i++) {
+        NVIC->ICER[i] = 0xFFFFFFFF;
+        NVIC->ICPR[i] = 0xFFFFFFFF;
+    }
+    __set_CONTROL(0);
+    __disable_irq();
+    __set_PRIMASK(1);
+
+    JumpToApplication = (pFunction) (*(__IO uint32_t *) (APPLICATION_ADDRESS + 4));
+    __set_MSP(*(__IO uint32_t *) APPLICATION_ADDRESS);
+    JumpToApplication();
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -114,6 +122,8 @@ int main(void) {
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
+        HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_3);
+        HAL_Delay(500);
     }
     /* USER CODE END 3 */
 }
