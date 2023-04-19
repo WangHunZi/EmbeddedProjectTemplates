@@ -53,6 +53,7 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         Code/Inc
         Code/Peripherals/LCD
         Code/Peripherals/W25QXX
+        Code/Peripherals/W25Q64JV
         )
 
 add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H750xx -DTFT18)

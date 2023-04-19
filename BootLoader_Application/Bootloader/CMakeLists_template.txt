@@ -52,6 +52,7 @@ include_directories(${includes}
         Code/Inc
         Code/Peripherals/LCD
         Code/Peripherals/W25QXX
+        Code/Peripherals/W25Q64JV
         )
 
 add_definitions(${defines} -DTFT18)
