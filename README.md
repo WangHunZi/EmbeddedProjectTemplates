@@ -13,6 +13,6 @@
 
 # BootLoader_Application
 
-具体请查看对应文件夹里的文档——[在CLion上实现STM32H750VBT6的Bootloader.md](BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.md)
+具体请查看对应文件夹里的文档——[在CLion上实现STM32H750VBT6的Bootloader.md](BootLoader_Application/在CLion上实现STM32H750VBT6的Bootloader.md)
 
 在CLion中完成了BootLoader的实现，花费了很多时间和精力。最后能够跑通的时候还是觉得很高兴的。
