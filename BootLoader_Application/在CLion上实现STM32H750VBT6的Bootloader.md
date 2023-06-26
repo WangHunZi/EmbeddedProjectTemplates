@@ -1,14 +1,14 @@
 # 说明
 
-**起因：**平常使用的环境是CLion，在使用WeAct的STM32H750VBT6的时候发现这个芯片内部的Flash太小，根本不能移植一些库，如LVGL。
+**起因：** 平常使用的环境是CLion，在使用WeAct的STM32H750VBT6的时候发现这个芯片内部的Flash太小，根本不能移植一些库，如LVGL。
 
-**本文内容：**事无巨细地介绍了实现Bootloader的全部过程，并且还包含有对使用openocd的一些问题的解决办法。所有代码提供百度网盘以及Github仓库链接。
+**本文内容：** 事无巨细地介绍了实现Bootloader的全部过程，并且还包含有对使用openocd的一些问题的解决办法。所有代码提供百度网盘以及Github仓库链接。
 
 **目的：** 目的在于让大家少踩坑，帮助大家实现Bootloader。自己也记录一下学习中的困难和感受。
 
-**关键字：**CLion STM32H750VBT6 WeAct 反客 Flash Bootloader openocd perl 
+**关键字：** CLion STM32H750VBT6 WeAct 反客 Flash Bootloader openocd perl 
 
-**软件环境：**Windows 11、CLion 2023.1.4 、STM32CubeMX 6.8.1、openocd 0.12.0
+**软件环境：** Windows 11、CLion 2023.1.4 、STM32CubeMX 6.8.1、openocd 0.12.0
 
 **仓库链接：** [suguguan/EmbeddedProjectTemplates (github.com)](https://github.com/suguguan/EmbeddedProjectTemplates)
 
@@ -43,11 +43,11 @@ source [find target/stm32h7x.cfg]
 
 正如之前所说，我们需要在main函数的一开始，就执行一些代码接管来自Bootloader的跳转后的控制权，让单片机按照外部Flash的地址顺次执行藏于中间的指令。
 
-![image-20230626161411982](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626161411982-1687773868296-1.png)
+![image-20230626161411982](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626161411982.png)
 
 除此之外我们还需要修改**STM32H750VBTX_FLASH.ld**这个文件的FLASH的地址和大小，分别为`0x90000000`和`8192K`。
 
-![image-20230626161258832](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626161258832-1687773911266-4.png)
+![image-20230626161258832](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626161258832.png)
 
 # STM32的QSPI
 
@@ -61,7 +61,7 @@ source [find target/stm32h7x.cfg]
 
 ### RCC Registers Configure
 
-![image-20230626154530618](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626154530618-1687773916458-7.png)
+![image-20230626154530618](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626154530618.png)
 
 这里的内容来源于**stm32h7x_dual_qspi.cfg**，该文件位于**openocd\share\openocd\scripts\board\stm32h7x_dual_qspi.cfg**。
 
@@ -82,7 +82,7 @@ source [find target/stm32h7x.cfg]
 
 引脚、功能、AFx均可以在quadspi.c的HAL_QSPI_MspInit函数中进行查看。这对我们理解下图也就是cfg中的这段配置项有帮助。
 
-![image-20230626144007878](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626144007878-1687773925212-10.png)
+![image-20230626144007878](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626144007878.png)
 假设你的引脚对应的功能和上面的不同，我们又应该怎么样去生成这样的配置项呢？
 
 1. 下载并安装perl工具以及并这个git仓库中[openocd/contrib/loaders/flash/stmqspi at master · openocd-org/openocd · GitHub](https://github.com/openocd-org/openocd/tree/master/contrib/loaders/flash/stmqspi)下载**gpio_conf_stm32.pl**
@@ -101,23 +101,23 @@ source [find target/stm32h7x.cfg]
 
    - 第二行就要用到刚才提到的引脚、功能、AFx了。但是**H**是什么意思？如果你仔细看了**gpio_conf_stm32.pl**最开始的注释就会知道，这是引脚的速率。
 
-     ![image-20230626150709577](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626150709577-1687773928872-13.png)
+     ![image-20230626150709577](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626150709577.png)
 
    - 第三行用以变量声明，默认为0，配置为1就会按照F1来对寄存器的地址进行计算，后面的代码有写：
 
-     ![image-20230626151029058](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626151029058-1687773931426-16.png)
+     ![image-20230626151029058](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626151029058.png)
 
    - 小提示：你可以查看该文件的注释部分，获取编写规范和更多信息。
 
 3. 修改好以后，在Terminal中执行`perl .\gpio_conf_stm32.pl`
 
-   ![image-20230626151449173](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626151449173-1687773935048-19.png)
+   ![image-20230626151449173](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626151449173.png)
 
    - 这里的主要作用是对QSPI的对应寄存器写具体的值，mmw的作用是给特定地址设置值和清除值。
 
 #### 功能寄存器
 
-![image-20230626155146692](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626155146692-1687773937813-22.png)
+![image-20230626155146692](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626155146692.png)
 
 这部分也是由**stm32h7x_dual_qspi.cfg**修改而来，需要注意这是**dual qspi**，因此我们需要做一些改动，使之成为**single qspi**，感觉需要对QSPI的寄存器有一定的了解，因此这部分参考了[RT-Thread-使用openOCD擦写ART_Pi外部qspi_flashRT-Thread问答社区 - RT-Thread](https://club.rt-thread.org/ask/article/95a03d2494e01ada.html)
 
@@ -170,27 +170,27 @@ CLion通过openocd进行下载的时候会有某些情况下载不进去的问�
 
 这样的方式很不优雅，也可以通过注释一些语句实现，但是有时候还是得手动reset。reset确实很头疼，连Openocd的文档也提到了这一点：
 
-![image-20230626165737620](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626165737620-1687773943461-25.png)
+![image-20230626165737620](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626165737620.png)
 
 主要和如下语句有关系：
 
 1. reset_config srst_only
 
-   ![image-20230626165347573](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626165347573-1687773945382-28.png)
+   ![image-20230626165347573](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626165347573.png)
 
    这好像主要和JTAG有关
 
 2. transport select hla_swd
 
-   ![image-20230626165955149](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626165955149-1687773948443-31.png)
+   ![image-20230626165955149](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626165955149.png)
 
    然后往上看，看到
 
-   ![image-20230626170153823](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626170153823-1687773951260-34.png)
+   ![image-20230626170153823](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626170153823.png)
 
    继续往上看
 
-   ![image-20230626170220853](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626170220853-1687773952817-37.png)
+   ![image-20230626170220853](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626170220853.png)
 
    在使用OpenOCD调试工具时，根据使用的OpenOCD版本和调试适配器，可以有多种传输方式可用于与调试目标进行通信，或者用于编程闪存存储器。感觉也是可以注释掉的。
 
@@ -231,15 +231,15 @@ CLion通过openocd进行下载的时候会有某些情况下载不进去的问�
 
 ### 查看外设地址
 
-![image-20230626163703429](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626163703429-1687773958111-40.png)
+![image-20230626163703429](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626163703429.png)
 
 1. 打断点然后进入调试
 
 2. 点击**Load .svd file**后进入到**Keil\Arm\Packs\Keil\STM32H7xx_DFP\3.1.0\CMSIS\SVD\\**中找到**STM32H750.svd**，然后选择对应外设，比如RCC、QSPI……
 
-   <img src="E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626164011223-1687773961631-43.png" alt="image-20230626164011223" style="zoom:25%;" />
+   <img src="https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626164011223.png" alt="image-20230626164011223" style="zoom:25%;" />
 
-   ![image-20230626164251058](E:\GithubRepositories\EmbeddedProjectTemplates\BootLoader_Application\在CLion上实现STM32H750VBT6的Bootloader.assets\image-20230626164251058-1687773965119-46.png)
+   ![image-20230626164251058](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626164251058.png)
 
    这样就可以查看寄存器的对应地址以及对应的值了，主要的作用是可以很方便的比对cfg文件里的对应地址了，虽然不太理解写入寄存器的值会有什么效果，但是好歹能够通过cfg文件的注释和CLion查看到的寄存器地址进行比对确认不是不是同一个芯片或者不同芯片能否套用……
 
