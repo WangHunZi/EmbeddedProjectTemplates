@@ -13,6 +13,8 @@
 **仓库链接：** [suguguan/EmbeddedProjectTemplates (github.com)](https://github.com/suguguan/EmbeddedProjectTemplates)
 
 **百度网盘链接：** 
+链接：https://pan.baidu.com/s/1SQxg2z3tdVsOv2fjB0gAog?pwd=1234 
+提取码：1234 
 
 # Bootloader的基本概念
 
@@ -30,7 +32,7 @@
 
 然后清除测试程序，在跳转程序之前执行内存映射函数，然后在while(1)之前执行跳转程序。其他不做改变。
 
-也要注意mmu，cache，我们要关闭这两个功能。
+也要注意mpu，cache，我们要关闭这两个功能。
 
 Bootloader的cfg文件内容如下：
 
