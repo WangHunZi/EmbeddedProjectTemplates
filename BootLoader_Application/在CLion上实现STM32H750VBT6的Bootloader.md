@@ -26,7 +26,7 @@
 
 单片机上电后会自己执行内部Flash中的代码，为了能够执行外部Flash的代码，我们要在内部Flash中增加一段代码，使其能够跳转到外部Flash中去，像是函数跳转一样，这是Bootloader要做的工作。跳转过去后，Application要重新初始化，接管控制权，相当于进入了第二个**main**函数，且不再返回。其实这个过程的内部执行还是挺复杂的。
 
-# Bootloader
+# Bootloader工程
 
 配置好QSPI和串口，然后跑一下外部Flash的测试程序。确保自己能够读取到外部Flash的ID，能读能写，并且确保能够进入内存映射模式。
 
@@ -41,7 +41,7 @@ source [find interface/stlink.cfg]
 source [find target/stm32h7x.cfg]
 ```
 
-# Application
+# Application工程
 
 正如之前所说，我们需要在main函数的一开始，就执行一些代码接管来自Bootloader的跳转后的控制权，让单片机按照外部Flash的地址顺次执行藏于中间的指令。
 
@@ -87,7 +87,7 @@ source [find target/stm32h7x.cfg]
 ![image-20230626144007878](https://wanower.oss-cn-beijing.aliyuncs.com/img/image-20230626144007878.png)
 假设你的引脚对应的功能和上面的不同，我们又应该怎么样去生成这样的配置项呢？
 
-1. 下载并安装perl工具以及并这个git仓库中[openocd/contrib/loaders/flash/stmqspi at master · openocd-org/openocd · GitHub](https://github.com/openocd-org/openocd/tree/master/contrib/loaders/flash/stmqspi)下载**gpio_conf_stm32.pl**
+1. 下载并安装perl工具以及访问这个git仓库中[openocd/contrib/loaders/flash/stmqspi at master · openocd-org/openocd · GitHub](https://github.com/openocd-org/openocd/tree/master/contrib/loaders/flash/stmqspi)下载**gpio_conf_stm32.pl**
 
    - 在Terminal中执行**perl -v**，查看是否安装好perl工具
 
@@ -131,7 +131,7 @@ source [find target/stm32h7x.cfg]
 
 **反客：**
 
-比如你是STM32H7B0VBT6等非H743和H750的芯片，则可以参考这篇文章[使用OpenOCD+VSCode一键烧录Boot+App到内置+外置flash | Haobo's Blog (haobogu.github.io)](https://haobogu.github.io/posts/keyboard/openocd-ospi-flash/)和这个仓库**[Peakors/STM32H7B0VBT6_Template](https://github.com/Peakors/STM32H7B0VBT6_Template)**。因为这是OSCTOFlASH，整个寄存器存在差异。配置文件可以查看openocd\share\openocd\scripts\board\stm32h7b3i-disco.cfg。
+比如你是STM32H7B0VBT6等非H743和H750的芯片，则可以参考这篇文章[使用OpenOCD+VSCode一键烧录Boot+App到内置+外置flash | Haobo's Blog (haobogu.github.io)](https://haobogu.github.io/posts/keyboard/openocd-ospi-flash/)和这个仓库[Peakors/STM32H7B0VBT6_Template](https://github.com/Peakors/STM32H7B0VBT6_Template)。因为这是OCTOFlASH，整个寄存器存在差异。配置文件可以查看openocd\share\openocd\scripts\board\stm32h7b3i-disco.cfg。
 
 **RT-Thread ART-PI** 和 **WeAct**
 
@@ -161,7 +161,7 @@ H743【未验证】和H750就可以使用本工程，否则要对应做参考和
 
 3. 如何验证2MB空间确实可用？
 
-   - 定义一个声明在0x08100000这个地址的数组（只要是超出0x80020000这个地址就应该可以）
+   - 定义一个声明在0x08100000这个地址的数组（只要是超出0x08020000这个地址就应该可以）
    - 定义一个大数组，中间插入某个数据，看能不能正常读写
 
    以上两种方式都可行。
