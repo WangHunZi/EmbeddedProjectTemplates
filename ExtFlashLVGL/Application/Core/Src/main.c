@@ -20,11 +20,16 @@
 #include "main.h"
 #include "spi.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "Retarget.h"
 #include "lcd.h"
+#include "lv_port_disp.h"
+#include "lvgl.h"
+#include "demos/stress/lv_demo_stress.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -96,8 +101,34 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI4_Init();
   MX_TIM1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  RetargetInit(&huart1);
   LCD_Test();
+//  ST7735Ctx.Orientation = ST7735_ORIENTATION_PORTRAIT_ROT180;
+//  ST7735_SetOrientation(&st7735_pObj, &ST7735Ctx);
+  lv_init();
+  lv_port_disp_init();
+//  lv_demo_stress();
+//  lv_demo_benchmark();
+//  lv_demo_music();
+
+  lv_obj_t * label;
+  lv_obj_t * btn1 = lv_btn_create(lv_scr_act());
+  lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
+
+  label = lv_label_create(btn1);
+  lv_label_set_text(label, "Button");
+  lv_obj_center(label);
+
+  lv_obj_t * btn2 = lv_btn_create(lv_scr_act());
+  lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 40);
+  lv_obj_add_flag(btn2, LV_OBJ_FLAG_CHECKABLE);
+  lv_obj_set_height(btn2, LV_SIZE_CONTENT);
+
+  label = lv_label_create(btn2);
+  lv_label_set_text(label, "Toggle");
+  lv_obj_center(label);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,8 +138,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    lv_tick_inc(5);
+    lv_timer_handler();
     HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_3);
-    HAL_Delay(500);
+    HAL_Delay(3);
   }
   /* USER CODE END 3 */
 }
