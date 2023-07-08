@@ -25,11 +25,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "../../Library/LVGL/lv_port_disp.h"
 #include "Retarget.h"
-#include "lcd.h"
-#include "lv_port_disp.h"
-#include "lvgl.h"
 #include "demos/stress/lv_demo_stress.h"
+#include "lcd.h"
+#include "lvgl.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
