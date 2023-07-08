@@ -97,7 +97,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   RetargetInit(&huart1);
   QSPI_W25Qxx_Init();
-  int8_t QSPI_Status = QSPI_W25Qxx_MemoryMappedMode(); // 配置QSPI为内存映射模�?
+  int8_t QSPI_Status = QSPI_W25Qxx_MemoryMappedMode(); // 配置QSPI为内存映射模式
   if( QSPI_Status == QSPI_W25Qxx_OK )
   {
     printf ("\r\n进入内存映射模式成功\r\n");
