@@ -248,19 +248,34 @@ extern "C" {
 void ST7735_Unselect();
 
 void ST7735_Init(void);
+
 void ST7735_DrawPixel(uint16_t x, uint16_t y, uint16_t color);
+
 void ST7735_WriteString(uint16_t x, uint16_t y, const char *str, FontDef font, uint16_t color, uint16_t bgcolor);
+
 void ST7735_FillRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+
 void ST7735_FillRectangleFast(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+
 void ST7735_FillScreen(uint16_t color);
+
 void ST7735_FillScreenFast(uint16_t color);
+
 void ST7735_DrawImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t *data);
+
 void ST7735_InvertColors(bool invert);
+
 void ST7735_SetGamma(GammaDef gamma);
+
 void ST7735_Select();
+
 void ST7735_SetAddressWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+
 void ST7735_WriteData(uint8_t *buff, size_t buff_size);
+
 void ST7735_WriteCommand(uint8_t cmd);
+
+void ST7725_WriteCommand_Data(uint8_t cmd, uint8_t *buff, size_t buff_size);
 
 #ifdef __cplusplus
 }
