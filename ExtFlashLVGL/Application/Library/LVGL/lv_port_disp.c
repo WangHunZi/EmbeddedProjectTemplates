@@ -10,9 +10,10 @@
  *      INCLUDES
  *********************/
 #include "lv_port_disp.h"
+#include <malloc.h>
 #include <stdbool.h>
 
-#include "lcd.h"
+#include "st7735.h"
 
 /*********************
  *      DEFINES
@@ -89,17 +90,17 @@ void lv_port_disp_init(void) {
     //    lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_1, NULL, MY_DISP_HOR_RES * 10);   /*Initialize the display buffer*/
 
     /* Example for 2) */
-    static lv_disp_draw_buf_t draw_buf_dsc_3;
-    static lv_color_t buf_2_1[MY_DISP_HOR_RES * 10];                                /*A buffer for 10 rows*/
-    static lv_color_t buf_2_2[MY_DISP_HOR_RES * 10];                                /*An other buffer for 10 rows*/
-    lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_2_1, buf_2_2, MY_DISP_HOR_RES * 10); /*Initialize the display buffer*/
+    //    static lv_disp_draw_buf_t draw_buf_dsc_3;
+    //    static lv_color_t buf_2_1[MY_DISP_HOR_RES * 10];                                /*A buffer for 10 rows*/
+    //    static lv_color_t buf_2_2[MY_DISP_HOR_RES * 10];                                /*An other buffer for 10 rows*/
+    //    lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_2_1, buf_2_2, MY_DISP_HOR_RES * 10); /*Initialize the display buffer*/
 
     /* Example for 3) also set disp_drv.full_refresh = 1 below*/
-    //    static lv_disp_draw_buf_t draw_buf_dsc_3;
-    //    static lv_color_t buf_3_1[MY_DISP_HOR_RES * MY_DISP_VER_RES];            /*A screen sized buffer*/
-    //    static lv_color_t buf_3_2[MY_DISP_HOR_RES * MY_DISP_VER_RES];            /*Another screen sized buffer*/
-    //    lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_3_1, buf_3_2,
-    //                          MY_DISP_VER_RES * 320);   /*Initialize the display buffer*/
+    static lv_disp_draw_buf_t draw_buf_dsc_3;
+    static lv_color_t buf_3_1[MY_DISP_HOR_RES * MY_DISP_VER_RES]; /*A screen sized buffer*/
+    static lv_color_t buf_3_2[MY_DISP_HOR_RES * MY_DISP_VER_RES]; /*Another screen sized buffer*/
+    lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_3_1, buf_3_2,
+                          MY_DISP_VER_RES * MY_DISP_HOR_RES); /*Initialize the display buffer*/
 
     /*-----------------------------------
      * Register the display in LVGL
@@ -159,22 +160,36 @@ void disp_disable_update(void) {
  *You can use DMA or any hardware acceleration to do this operation in the background but
  *'lv_disp_flush_ready()' has to be called when finished.*/
 static void disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p) {
-    if (disp_flush_enabled) {
-        /*The most simple case (but also the slowest) to put all pixels to the screen one-by-one*/
+    //    if (disp_flush_enabled) {
+    //        /*The most simple case (but also the slowest) to put all pixels to the screen one-by-one*/
+    //
+    //        int32_t x;
+    //        int32_t y;
+    //        for (y = area->y1; y <= area->y2; y++) {
+    //            for (x = area->x1; x <= area->x2; x++) {
+    //                /*Put a pixel to the display. For example:*/
+    //                /*put_px(x, y, *color_p)*/
+    //                color_p++;
+    //            }
+    //        }
+    //    }
+    uint16_t w = (area->x2 - area->x1 + 1);
+    uint16_t h = (area->y2 - area->y1 + 1);
+    HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_RESET);
+    ST7735_WriteCommand(ST7735_CASET);
+    uint8_t data[] = {0x00, area->x1 + ST7735_XSTART, 0x00, area->x2 + ST7735_XSTART};
+    ST7735_WriteData(data, sizeof(data));
 
-        int32_t x;
-        int32_t y;
-        for (y = area->y1; y <= area->y2; y++) {
-            for (x = area->x1; x <= area->x2; x++) {
-                /*Put a pixel to the display. For example:*/
-                /*put_px(x, y, *color_p)*/
-                ST7735_SetPixel(&st7735_pObj, x, y, color_p->full);
-                color_p++;
-            }
-        }
-    }
-    //        printf("The color is 0x%x\n", *color_p);
-    //        ST7735_LCD_Driver.FillRect(&st7735_pObj, area->x1, area->y1, area->x2, area->y2, color_p);
+    // row address set
+    ST7735_WriteCommand(ST7735_RASET);
+    data[1] = area->y1 + ST7735_YSTART;
+    data[3] = area->y2 + ST7735_YSTART;
+    ST7735_WriteData(data, sizeof(data));
+    // write to RAM
+    ST7735_WriteCommand(ST7735_RAMWR);
+
+    HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
+    HAL_SPI_Transmit(&ST7735_SPI_PORT, (uint8_t *) color_p, sizeof(uint16_t) * w * h, 5);
     /*IMPORTANT!!!
      *Inform the graphics library that you are ready with the flushing*/
     lv_disp_flush_ready(disp_drv);

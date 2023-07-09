@@ -28,9 +28,9 @@
 #include "Retarget.h"
 #include "demos/stress/lv_demo_stress.h"
 #include "examples/lv_examples.h"
-#include "lcd.h"
 #include "lv_port_disp.h"
 #include "lvgl.h"
+#include "st7735.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -99,24 +99,24 @@ int main(void) {
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
     MX_SPI4_Init();
-    MX_TIM1_Init();
     MX_USART1_UART_Init();
     MX_TIM2_Init();
     /* USER CODE BEGIN 2 */
     //  HAL_TIM_Base_Start(&htim1);
     HAL_TIM_Base_Start_IT(&htim2);
     RetargetInit(&huart1);
-    LCD_Test();
-    //  翻转方向
-    //  ST7735Ctx.Orientation = ST7735_ORIENTATION_PORTRAIT_ROT180;
-    //  ST7735_SetOrientation(&st7735_pObj, &ST7735Ctx);
+
+    ST7735_Init();
+
     lv_init();
     lv_port_disp_init();
 
-    lv_example_arc_1();
-    //  lv_demo_stress();
-    //  lv_demo_benchmark();
-    //  lv_demo_music();
+    //    lv_example_arc_1();
+    //    lv_example_btn_1();
+    //    lv_example_bar_1();
+    //    lv_demo_stress();
+    lv_demo_benchmark();
+    //    lv_demo_music();
 
     /* USER CODE END 2 */
 
@@ -127,7 +127,7 @@ int main(void) {
 
         /* USER CODE BEGIN 3 */
         lv_timer_handler();
-        HAL_Delay(5);
+        HAL_Delay(3);
     }
     /* USER CODE END 3 */
 }
