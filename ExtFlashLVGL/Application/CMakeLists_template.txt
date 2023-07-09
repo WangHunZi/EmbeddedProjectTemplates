@@ -48,11 +48,11 @@ else ()
     add_compile_options(-Og -g)
 endif ()
 
-include_directories(${includes} Peripherals/ST7735 Library/LVGL/lvgl)
+include_directories(${includes} Peripherals/ST7735 Library/LVGL Library/LVGL/lvgl Code/Inc)
 
 add_definitions(${defines} -DTFT18)
 
-file(GLOB_RECURSE SOURCES ${sources} "Peripherals/*.*" "Library/*.*")
+file(GLOB_RECURSE SOURCES ${sources} "Peripherals/*.*" "Library/*.*" "Code/*.*")
 
 set(LINKER_SCRIPT $${CMAKE_SOURCE_DIR}/${linkerScript})
 

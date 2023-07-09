@@ -1,1122 +1,304 @@
-/**
-  ******************************************************************************
-  * @file    st7735.c
-  * @author  MCD Application Team
-  * @brief   This file includes the driver for ST7735 LCD mounted on the Adafruit
-  *          1.8" TFT LCD shield (reference ID 802).
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
-
-/* Includes ------------------------------------------------------------------*/
+/* vim: set ai et ts=4 sw=4: */
 #include "st7735.h"
+#include "malloc.h"
+#include "stm32h7xx_hal.h"
+#include "string.h"
 
-/** @addtogroup Peripherals
-  * @{
-  */
+#define DELAY 0x80
 
-/** @addtogroup Components
-  * @{
-  */
+// based on Adafruit ST7735 library for Arduino
+static const uint8_t
+        init_cmds1[] = {              // Init for 7735R, part 1 (red or green tab)
+                15,                   // 15 commands in list:
+                ST7735_SWRESET, DELAY,//  1: Software reset, 0 args, w/delay
+                150,                  //     150 ms delay
+                ST7735_SLPOUT, DELAY, //  2: Out of sleep mode, 0 args, w/delay
+                255,                  //     500 ms delay
+                ST7735_FRMCTR1, 3,    //  3: Frame rate ctrl - normal mode, 3 args:
+                0x01, 0x2C, 0x2D,     //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
+                ST7735_FRMCTR2, 3,    //  4: Frame rate control - idle mode, 3 args:
+                0x01, 0x2C, 0x2D,     //     Rate = fosc/(1x2+40) * (LINE+2C+2D)
+                ST7735_FRMCTR3, 6,    //  5: Frame rate ctrl - partial mode, 6 args:
+                0x01, 0x2C, 0x2D,     //     Dot inversion mode
+                0x01, 0x2C, 0x2D,     //     Line inversion mode
+                ST7735_INVCTR, 1,     //  6: Display inversion ctrl, 1 arg, no delay:
+                0x07,                 //     No inversion
+                ST7735_PWCTR1, 3,     //  7: Power control, 3 args, no delay:
+                0xA2,
+                0x02,            //     -4.6V
+                0x84,            //     AUTO mode
+                ST7735_PWCTR2, 1,//  8: Power control, 1 arg, no delay:
+                0xC5,            //     VGH25 = 2.4C VGSEL = -10 VGH = 3 * AVDD
+                ST7735_PWCTR3, 2,//  9: Power control, 2 args, no delay:
+                0x0A,            //     Opamp current small
+                0x00,            //     Boost frequency
+                ST7735_PWCTR4, 2,// 10: Power control, 2 args, no delay:
+                0x8A,            //     BCLK/2, Opamp current small & Medium low
+                0x2A,
+                ST7735_PWCTR5, 2,// 11: Power control, 2 args, no delay:
+                0x8A, 0xEE,
+                ST7735_VMCTR1, 1,// 12: Power control, 1 arg, no delay:
+                0x0E,
+                ST7735_INVOFF, 0,// 13: Don't invert display, no args, no delay
+                ST7735_MADCTL, 1,// 14: Memory access control (directions), 1 arg:
+                ST7735_ROTATION, //     row addr/col addr, bottom to top refresh
+                ST7735_COLMOD, 1,// 15: set color mode, 1 arg, no delay:
+                0x05},           //     16-bit color
 
+#if (defined(ST7735_IS_128X128) || defined(ST7735_IS_160X128))
+        init_cmds2[] = {        // Init for 7735R, part 2 (1.44" display)
+                2,              //  2 commands in list:
+                ST7735_CASET, 4,//  1: Column addr set, 4 args, no delay:
+                0x00, 0x00,     //     XSTART = 0
+                0x00, 0x7F,     //     XEND = 127
+                ST7735_RASET, 4,//  2: Row addr set, 4 args, no delay:
+                0x00, 0x00,     //     XSTART = 0
+                0x00, 0x7F},    //     XEND = 127
+#endif                          // ST7735_IS_128X128
 
-/**
-  * @}
-  */
+#ifdef ST7735_IS_160X80
+        init_cmds2[] = {         // Init for 7735S, part 2 (160x80 display)
+                3,               //  3 commands in list:
+                ST7735_CASET, 4, //  1: Column addr set, 4 args, no delay:
+                0x00, 0x00,      //     XSTART = 0
+                0x00, 0x4F,      //     XEND = 79
+                ST7735_RASET, 4, //  2: Row addr set, 4 args, no delay:
+                0x00, 0x00,      //     XSTART = 0
+                0x00, 0x9F,      //     XEND = 159
+                ST7735_INVON, 0},//  3: Invert colors
+#endif
 
-/** @defgroup ST7735_Private_Variables Private Variables
-  * @{
-  */
-ST7735_LCD_Drv_t   ST7735_LCD_Driver =
-{
-  ST7735_Init,
-  ST7735_DeInit,
-  ST7735_ReadID,
-  ST7735_DisplayOn,
-  ST7735_DisplayOff,
-  ST7735_SetBrightness,
-  ST7735_GetBrightness,
-  ST7735_SetOrientation,
-  ST7735_GetOrientation,
-  ST7735_SetCursor,
-  ST7735_DrawBitmap,
-  ST7735_FillRGBRect,
-  ST7735_DrawHLine,
-  ST7735_DrawVLine,
-  ST7735_FillRect,
-  ST7735_GetPixel,
-  ST7735_SetPixel,
-  ST7735_GetXSize,
-  ST7735_GetYSize,
-};
+        init_cmds3[] = {                                                                                                            // Init for 7735R, part 3 (red or green tab)
+                4,                                                                                                                  //  4 commands in list:
+                ST7735_GMCTRP1, 16,                                                                                                 //  1: Gamma Adjustments (pos. polarity), 16 args, no delay:
+                0x02, 0x1c, 0x07, 0x12, 0x37, 0x32, 0x29, 0x2d, 0x29, 0x25, 0x2B, 0x39, 0x00, 0x01, 0x03, 0x10, ST7735_GMCTRN1, 16, //  2: Gamma Adjustments (neg. polarity), 16 args, no delay:
+                0x03, 0x1d, 0x07, 0x06, 0x2E, 0x2C, 0x29, 0x2D, 0x2E, 0x2E, 0x37, 0x3F, 0x00, 0x00, 0x02, 0x10, ST7735_NORON, DELAY,//  3: Normal display on, no args, w/delay
+                10,                                                                                                                 //     10 ms delay
+                ST7735_DISPON, DELAY,                                                                                               //  4: Main screen turn on, no args w/delay
+                100};                                                                                                               //     100 ms delay
 
-/* The below table handle the different values to be set to Memory Data Access Control
-   depending on the orientation and pbm image writing where the data order is inverted
+void ST7735_Select() {
+    HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_RESET);
+}
+
+void ST7735_Unselect() {
+    HAL_GPIO_WritePin(ST7735_CS_GPIO_Port, ST7735_CS_Pin, GPIO_PIN_SET);
+}
+
+static void ST7735_Reset() {
+    HAL_GPIO_WritePin(ST7735_RES_GPIO_Port, ST7735_RES_Pin, GPIO_PIN_RESET);
+    HAL_Delay(5);
+    HAL_GPIO_WritePin(ST7735_RES_GPIO_Port, ST7735_RES_Pin, GPIO_PIN_SET);
+}
+
+void ST7735_WriteCommand(uint8_t cmd) {
+    HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(&ST7735_SPI_PORT, &cmd, sizeof(cmd), HAL_MAX_DELAY);
+}
+
+void ST7735_WriteData(uint8_t *buff, size_t buff_size) {
+    HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
+    HAL_SPI_Transmit(&ST7735_SPI_PORT, buff, buff_size, HAL_MAX_DELAY);
+}
+
+static void ST7735_ExecuteCommandList(const uint8_t *addr) {
+    uint8_t numCommands, numArgs;
+    uint16_t ms;
+
+    numCommands = *addr++;
+    while (numCommands--) {
+        uint8_t cmd = *addr++;
+        ST7735_WriteCommand(cmd);
+
+        numArgs = *addr++;
+        // If high bit set, delay follows args
+        ms = numArgs & DELAY;
+        numArgs &= ~DELAY;
+        if (numArgs) {
+            ST7735_WriteData((uint8_t *) addr, numArgs);
+            addr += numArgs;
+        }
+
+        if (ms) {
+            ms = *addr++;
+            if (ms == 255) ms = 500;
+            HAL_Delay(ms);
+        }
+    }
+}
+
+void ST7735_SetAddressWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
+    // column address set
+    ST7735_WriteCommand(ST7735_CASET);
+    uint8_t data[] = {0x00, x0 + ST7735_XSTART, 0x00, x1 + ST7735_XSTART};
+    ST7735_WriteData(data, sizeof(data));
+
+    // row address set
+    ST7735_WriteCommand(ST7735_RASET);
+    data[1] = y0 + ST7735_YSTART;
+    data[3] = y1 + ST7735_YSTART;
+    ST7735_WriteData(data, sizeof(data));
+
+    // write to RAM
+    ST7735_WriteCommand(ST7735_RAMWR);
+}
+
+void ST7735_Init() {
+    ST7735_Select();
+    //    ST7735_Reset();
+    ST7735_ExecuteCommandList(init_cmds1);
+    ST7735_ExecuteCommandList(init_cmds2);
+    ST7735_ExecuteCommandList(init_cmds3);
+    ST7735_Unselect();
+}
+
+void ST7735_DrawPixel(uint16_t x, uint16_t y, uint16_t color) {
+    if ((x >= ST7735_WIDTH) || (y >= ST7735_HEIGHT))
+        return;
+
+    ST7735_Select();
+
+    ST7735_SetAddressWindow(x, y, x + 1, y + 1);
+    uint8_t data[] = {color >> 8, color & 0xFF};
+    ST7735_WriteData(data, sizeof(data));
+
+    ST7735_Unselect();
+}
+
+static void ST7735_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t color, uint16_t bgcolor) {
+    uint32_t i, b, j;
+
+    ST7735_SetAddressWindow(x, y, x + font.width - 1, y + font.height - 1);
+
+    for (i = 0; i < font.height; i++) {
+        b = font.data[(ch - 32) * font.height + i];
+        for (j = 0; j < font.width; j++) {
+            if ((b << j) & 0x8000) {
+                uint8_t data[] = {color >> 8, color & 0xFF};
+                ST7735_WriteData(data, sizeof(data));
+            } else {
+                uint8_t data[] = {bgcolor >> 8, bgcolor & 0xFF};
+                ST7735_WriteData(data, sizeof(data));
+            }
+        }
+    }
+}
+
+/*
+Simpler (and probably slower) implementation:
+
+static void ST7735_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t color) {
+    uint32_t i, b, j;
+
+    for(i = 0; i < font.height; i++) {
+        b = font.data[(ch - 32) * font.height + i];
+        for(j = 0; j < font.width; j++) {
+            if((b << j) & 0x8000)  {
+                ST7735_DrawPixel(x + j, y + i, color);
+            } 
+        }
+    }
+}
 */
-static uint32_t OrientationTab[4][2] =
-{
-  {0x40U , 0xC0U}, /* Portrait orientation choice of LCD screen               */
-  {0x80U , 0x00U}, /* Portrait rotated 180? orientation choice of LCD screen  */
-  {0x20U , 0x60U}, /* Landscape orientation choice of LCD screen              */
-  {0xE0U , 0xA0U}  /* Landscape rotated 180? orientation choice of LCD screen */
-};
 
-ST7735_Ctx_t ST7735Ctx;
-/**
-  * @}
-  */
+void ST7735_WriteString(uint16_t x, uint16_t y, const char *str, FontDef font, uint16_t color, uint16_t bgcolor) {
+    ST7735_Select();
 
-/** @defgroup ST7735_Private_FunctionsPrototypes Private Functions Prototypes
-  * @{
-  */
-static int32_t ST7735_SetDisplayWindow(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height);
-static int32_t ST7735_ReadRegWrap(void *Handle, uint8_t Reg, uint8_t* pData);
-static int32_t ST7735_WriteRegWrap(void *Handle, uint8_t Reg, uint8_t *pData, uint32_t Length);
-static int32_t ST7735_SendDataWrap(void *Handle, uint8_t *pData, uint32_t Length);
-static int32_t ST7735_RecvDataWrap(void *Handle, uint8_t *pData, uint32_t Length);
-static int32_t ST7735_IO_Delay(ST7735_Object_t *pObj, uint32_t Delay);
-/**
-* @}
-*/
+    while (*str) {
+        if (x + font.width >= ST7735_WIDTH) {
+            x = 0;
+            y += font.height;
+            if (y + font.height >= ST7735_HEIGHT) {
+                break;
+            }
 
-/** @addtogroup ST7735_Exported_Functions
-  * @{
-  */
-/**
-  * @brief  Register component IO bus
-  * @param  pObj Component object pointer
-  * @param  pIO  Component IO structure pointer
-  * @retval Component status
-  */
-int32_t ST7735_RegisterBusIO (ST7735_Object_t *pObj, ST7735_IO_t *pIO)
-{
-  int32_t ret;
-
-  if(pObj == NULL)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-    pObj->IO.Init      = pIO->Init;
-    pObj->IO.DeInit    = pIO->DeInit;
-    pObj->IO.Address   = pIO->Address;
-    pObj->IO.WriteReg  = pIO->WriteReg;
-    pObj->IO.ReadReg   = pIO->ReadReg;
-    pObj->IO.SendData  = pIO->SendData;
-    pObj->IO.RecvData  = pIO->RecvData;
-    pObj->IO.GetTick   = pIO->GetTick;
-
-    pObj->Ctx.ReadReg   = ST7735_ReadRegWrap;
-    pObj->Ctx.WriteReg  = ST7735_WriteRegWrap;
-    pObj->Ctx.SendData  = ST7735_SendDataWrap;
-    pObj->Ctx.RecvData  = ST7735_RecvDataWrap;
-    pObj->Ctx.handle    = pObj;
-
-    if(pObj->IO.Init != NULL)
-    {
-      ret = pObj->IO.Init();
-    }
-    else
-    {
-      ret = ST7735_ERROR;
-    }
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Initialize the st7735 LCD Component.
-  * @param  pObj Component object
-  * @param  ColorCoding RGB mode
-  * @param  Orientation Display orientation
-  * @retval Component status
-  */
-int32_t ST7735_Init(ST7735_Object_t *pObj, uint32_t ColorCoding, ST7735_Ctx_t *pDriver)
-{
-  uint8_t tmp;
-  int32_t ret;
-
-  if(pObj == NULL)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-		/* Out of sleep mode, 0 args, delay 120ms */
-    tmp = 0x00U;
-    ret = st7735_write_reg(&pObj->Ctx, ST7735_SW_RESET, &tmp, 0);
-		(void)ST7735_IO_Delay(pObj, 120);
-		
-		tmp = 0x00U;
-    ret = st7735_write_reg(&pObj->Ctx, ST7735_SW_RESET, &tmp, 0);
-		(void)ST7735_IO_Delay(pObj, 120);
-		
-    /* Out of sleep mode, 0 args, no delay */
-    tmp = 0x00U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_SLEEP_OUT, &tmp, 1);
-    
-		/* Frame rate ctrl - normal mode, 3 args:Rate = fosc/(1x2+40) * (LINE+2C+2D)*/
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_FRAME_RATE_CTRL1, &tmp, 0);
-    tmp = 0x01U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Frame rate control - idle mode, 3 args:Rate = fosc/(1x2+40) * (LINE+2C+2D) */
-    tmp = 0x01U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_FRAME_RATE_CTRL2, &tmp, 1);
-    tmp = 0x2CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Frame rate ctrl - partial mode, 6 args: Dot inversion mode, Line inversion mode */
-    tmp = 0x01U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_FRAME_RATE_CTRL3, &tmp, 1);
-    tmp = 0x2CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x01U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Display inversion ctrl, 1 arg, no delay: No inversion */
-    tmp = 0x07U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_FRAME_INVERSION_CTRL, &tmp, 1);
-
-    /* Power control, 3 args, no delay: -4.6V , AUTO mode */
-    tmp = 0xA2U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PWR_CTRL1, &tmp, 1);
-    tmp = 0x02U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x84U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Power control, 1 arg, no delay: VGH25 = 2.4C VGSEL = -10 VGH = 3 * AVDD */
-    tmp = 0xC5U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PWR_CTRL2, &tmp, 1);
-
-    /* Power control, 2 args, no delay: Opamp current small, Boost frequency */
-    tmp = 0x0AU;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PWR_CTRL3, &tmp, 1);
-    tmp = 0x00U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Power control, 2 args, no delay: BCLK/2, Opamp current small & Medium low */
-    tmp = 0x8AU;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PWR_CTRL4, &tmp, 1);
-    tmp = 0x2AU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Power control, 2 args, no delay */
-    tmp = 0x8AU;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PWR_CTRL5, &tmp, 1);
-    tmp = 0xEEU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Power control, 1 arg, no delay */
-    tmp = 0x0EU;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_VCOMH_VCOML_CTRL1, &tmp, 1);
-
-		/* choose panel*/
-		if (pDriver->Panel == HannStar_Panel) {
-			ret += st7735_write_reg(&pObj->Ctx, ST7735_DISPLAY_INVERSION_ON, &tmp, 0);
-		} else {
-			ret += st7735_write_reg(&pObj->Ctx, ST7735_DISPLAY_INVERSION_OFF, &tmp, 0);
-		}
-    /* Set color mode, 1 arg, no delay */
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_COLOR_MODE, (uint8_t*)&ColorCoding, 1);
-
-    /* Magical unicorn dust, 16 args, no delay */
-    tmp = 0x02U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_PV_GAMMA_CTRL, &tmp, 1);
-    tmp = 0x1CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x07U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x12U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x37U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x32U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x29U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x29U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x25U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2BU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x39U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x00U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x01U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x03U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x10U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Sparkles and rainbows, 16 args, no delay */
-    tmp = 0x03U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_NV_GAMMA_CTRL, &tmp, 1);
-    tmp = 0x1DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x07U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x06U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2EU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2CU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x29U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2DU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2EU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x2EU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x37U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x3FU;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x00U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x00U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x02U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-    tmp = 0x10U;
-    ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    //初始化GRAM
-    tmp = 0x2C;
-    st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-    /* Normal display on, no args, no delay */
-    tmp  = 0x00U;
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_NORMAL_DISPLAY_OFF, &tmp, 1);
-
-    /* Main screen turn on, no delay */
-    ret += st7735_write_reg(&pObj->Ctx, ST7735_DISPLAY_ON, &tmp, 1);
-
-    /* Set the display Orientation and the default display window */
-    ret += ST7735_SetOrientation(pObj, pDriver);
-  }
-
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  De-Initialize the st7735 LCD Component.
-  * @param  pObj Component object
-  * @retval Component status
-  */
-int32_t ST7735_DeInit(ST7735_Object_t *pObj)
-{
-  (void)(pObj);
-
-  return ST7735_OK;
-}
-
-/**
-  * @brief  Get the st7735 ID.
-  * @param  pObj Component object
-  * @param  Id Component ID
-  * @retval The component status
-  */
-int32_t ST7735_ReadID(ST7735_Object_t *pObj, uint32_t *Id)
-{
-  int32_t ret;
-  uint8_t tmp[3];
-
-  if(st7735_read_reg(&pObj->Ctx, ST7735_READ_ID1, &tmp[0]) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-  else if(st7735_read_reg(&pObj->Ctx, ST7735_READ_ID2, &tmp[1]) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }	
-	else if(st7735_read_reg(&pObj->Ctx, ST7735_READ_ID3, &tmp[2]) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }	
-  else
-  {
-		
-    *Id = ((uint32_t)tmp[2])<<0| ((uint32_t)tmp[1])<<8 | ((uint32_t)tmp[0])<<16;
-		//*Id = __rbit(*Id);
-    ret = ST7735_OK;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Enables the Display.
-  * @param  pObj Component object
-  * @retval The component status
-  */
-int32_t ST7735_DisplayOn(ST7735_Object_t *pObj)
-{
-  int32_t ret;
-  uint8_t tmp = 0;
-
-  ret = st7735_write_reg(&pObj->Ctx, ST7735_NORMAL_DISPLAY_OFF, &tmp, 0);
-  (void)ST7735_IO_Delay(pObj, 10);
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_DISPLAY_ON, &tmp, 0);
-  (void)ST7735_IO_Delay(pObj, 10);
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_MADCTL, &tmp, 0);
-	tmp = ST7735Ctx.Panel == HannStar_Panel ? 
-			(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_BGR :
-			(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_RGB;
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Disables the Display.
-  * @param  pObj Component object
-  * @retval The component status
-  */
-int32_t ST7735_DisplayOff(ST7735_Object_t *pObj)
-{
-  int32_t ret;
-  uint8_t tmp = 0;
-
-  ret = st7735_write_reg(&pObj->Ctx, ST7735_NORMAL_DISPLAY_OFF, &tmp, 0);
-  (void)ST7735_IO_Delay(pObj, 10);
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_DISPLAY_OFF, &tmp, 0);
-  (void)ST7735_IO_Delay(pObj, 10);
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_MADCTL, &tmp, 0);
-	tmp = ST7735Ctx.Panel == HannStar_Panel ? 
-		(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_BGR :
-		(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_RGB;
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Set the display brightness.
-  * @param  pObj Component object
-  * @param  Brightness   display brightness to be set
-  * @retval Component status
-  */
-int32_t ST7735_SetBrightness(ST7735_Object_t *pObj, uint32_t Brightness)
-{
-  (void)(pObj);
-  (void)(Brightness);
-	
-  /* Feature not supported */
-  return ST7735_ERROR;
-}
-
-/**
-  * @brief  Get the display brightness.
-  * @param  pObj Component object
-  * @param  Brightness   display brightness to be returned
-  * @retval Component status
-  */
-int32_t ST7735_GetBrightness(ST7735_Object_t *pObj, uint32_t *Brightness)
-{
-  (void)(pObj);
-  (void)(Brightness);
-
-  /* Feature not supported */
-  return ST7735_ERROR;
-}
-
-/**
-  * @brief  Set the Display Orientation.
-  * @param  pObj Component object
-  * @param  Orientation ST7735_ORIENTATION_PORTRAIT, ST7735_ORIENTATION_PORTRAIT_ROT180
-  *                     ST7735_ORIENTATION_LANDSCAPE or ST7735_ORIENTATION_LANDSCAPE_ROT180
-  * @retval The component status
-  */
-int32_t ST7735_SetOrientation(ST7735_Object_t *pObj, ST7735_Ctx_t *pDriver)
-{
-  int32_t ret;
-  uint8_t tmp;
-
-  if((pDriver->Orientation == ST7735_ORIENTATION_PORTRAIT) || (pDriver->Orientation == ST7735_ORIENTATION_PORTRAIT_ROT180))
-  {
-		if (pDriver->Type == ST7735_0_9_inch_screen) {
-			ST7735Ctx.Width  = ST7735_0_9_WIDTH;
-			ST7735Ctx.Height = ST7735_0_9_HEIGHT;
-		} else if (pDriver->Type == ST7735_1_8_inch_screen || pDriver->Type == ST7735_1_8a_inch_screen){
-			ST7735Ctx.Width  = ST7735_1_8_WIDTH;
-			ST7735Ctx.Height = ST7735_1_8_HEIGHT;
-		}
-  }
-  else
-  {
-		if (pDriver->Type == ST7735_0_9_inch_screen) {
-			ST7735Ctx.Width  = ST7735_0_9_HEIGHT;
-			ST7735Ctx.Height = ST7735_0_9_WIDTH;
-		} else if (pDriver->Type == ST7735_1_8_inch_screen || pDriver->Type == ST7735_1_8a_inch_screen){
-			ST7735Ctx.Width  = ST7735_1_8_HEIGHT;
-			ST7735Ctx.Height = ST7735_1_8_WIDTH;
-		}
-  }
-	
-	ST7735Ctx.Orientation = pDriver->Orientation;
-	ST7735Ctx.Panel = pDriver->Panel;
-	ST7735Ctx.Type = pDriver->Type;
-	
-  ret = ST7735_SetDisplayWindow(pObj, 0U, 0U, ST7735Ctx.Width, ST7735Ctx.Height);
-
-	tmp = ST7735Ctx.Panel == HannStar_Panel ? 
-			(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_BGR :
-			(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_RGB;
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_MADCTL, &tmp, 1);
-
-  
-
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Set the Display Orientation.
-  * @param  pObj Component object
-  * @param  Orientation ST7735_ORIENTATION_PORTRAIT, ST7735_ORIENTATION_LANDSCAPE
-  *                      or ST7735_ORIENTATION_LANDSCAPE_ROT180
-  * @retval The component status
-  */
-int32_t ST7735_GetOrientation(ST7735_Object_t *pObj, uint32_t *Orientation)
-{
-
-  *Orientation = ST7735Ctx.Orientation;
-
-  return ST7735_OK;
-}
-
-/**
-  * @brief  Set Cursor position.
-  * @param  pObj Component object
-  * @param  Xpos specifies the X position.
-  * @param  Ypos specifies the Y position.
-  * @retval The component status
-  */
-int32_t ST7735_SetCursor(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos)
-{
-  int32_t ret;
-  uint8_t tmp;
-	
-	/* Cursor calibration */
-	if(ST7735Ctx.Orientation <= ST7735_ORIENTATION_PORTRAIT_ROT180) {
-        if (ST7735Ctx.Type == ST7735_0_9_inch_screen) {		//0.96 ST7735
-			if (ST7735Ctx.Panel == HannStar_Panel) {
-				Xpos += 26;
-				Ypos += 1;
-			} else {		//BOE Panel
-				Xpos += 24;
-				Ypos += 0;
-			}
-		}else if(ST7735Ctx.Type == ST7735_1_8a_inch_screen){
-            if (ST7735Ctx.Panel == BOE_Panel) {
-				Xpos += 2;
-				Ypos += 1;
-			}
+            if (*str == ' ') {
+                // skip spaces in the beginning of the new line
+                str++;
+                continue;
+            }
         }
-    } else {
-		if (ST7735Ctx.Type == ST7735_0_9_inch_screen) {
-			if (ST7735Ctx.Panel == HannStar_Panel) {		//0.96 ST7735
-				Xpos += 1;
-				Ypos += 26;
-			} else {		//BOE Panel
-				Xpos += 0;
-				Ypos += 24;
-			}
-		}else if(ST7735Ctx.Type == ST7735_1_8a_inch_screen){
-            if (ST7735Ctx.Panel == BOE_Panel) {
-				Xpos += 1;
-				Ypos += 2;
-			}
+
+        ST7735_WriteChar(x, y, *str, font, color, bgcolor);
+        x += font.width;
+        str++;
+    }
+
+    ST7735_Unselect();
+}
+
+
+void ST7735_FillRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+    // clipping
+    if ((x >= ST7735_WIDTH) || (y >= ST7735_HEIGHT)) return;
+    if ((x + w - 1) >= ST7735_WIDTH) w = ST7735_WIDTH - x;
+    if ((y + h - 1) >= ST7735_HEIGHT) h = ST7735_HEIGHT - y;
+
+    ST7735_Select();
+    ST7735_SetAddressWindow(x, y, x + w - 1, y + h - 1);
+
+    uint8_t data[] = {color >> 8, color & 0xFF};
+    HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
+    for (y = h; y > 0; y--) {
+        for (x = w; x > 0; x--) {
+            HAL_SPI_Transmit(&ST7735_SPI_PORT, data, sizeof(data), HAL_MAX_DELAY);
         }
-	}
-	
-  ret = st7735_write_reg(&pObj->Ctx, ST7735_CASET, &tmp, 0);
-  tmp = (uint8_t)(Xpos >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)(Xpos & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_RASET, &tmp, 0);
-  tmp = (uint8_t)(Ypos >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)(Ypos & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_WRITE_RAM, &tmp, 0);
-
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Displays a bitmap picture.
-  * @param  pObj Component object
-  * @param  Xpos Bmp X position in the LCD
-  * @param  Ypos Bmp Y position in the LCD
-  * @param  pBmp Bmp picture address.
-  * @retval The component status
-  */
-int32_t ST7735_DrawBitmap(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pBmp)
-{
-  int32_t ret = ST7735_OK;
-  uint32_t index, size, width, height, y_pos;
-  uint8_t pixel_val[2], tmp;
-  uint8_t *pbmp;
-  uint32_t counter = 0;
-
-  /* Get bitmap data address offset */
-  index = (uint32_t)pBmp[10] + ((uint32_t)pBmp[11] << 8) + ((uint32_t)pBmp[12] << 16)  + ((uint32_t)pBmp[13] << 24);
-
-  /* Read bitmap width */
-  width = (uint32_t)pBmp[18] + ((uint32_t)pBmp[19] << 8) + ((uint32_t)pBmp[20] << 16)  + ((uint32_t)pBmp[21] << 24);
-
-  /* Read bitmap height */
-  height = (uint32_t)pBmp[22] + ((uint32_t)pBmp[23] << 8) + ((uint32_t)pBmp[24] << 16)  + ((uint32_t)pBmp[25] << 24);
-
-  /* Read bitmap size */
-  size = (uint32_t)pBmp[2] + ((uint32_t)pBmp[3] << 8) + ((uint32_t)pBmp[4] << 16)  + ((uint32_t)pBmp[5] << 24);
-  size = size - index;
-
-  pbmp = pBmp + index;
-
-  /* Remap Ypos, st7735 works with inverted X in case of bitmap */
-  /* X = 0, cursor is on Top corner */
-  y_pos = ST7735Ctx.Height - Ypos - height;
-
-  if(ST7735_SetDisplayWindow(pObj, Xpos, y_pos, width, height) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-    /* Set GRAM write direction and BGR = 0 */
-    tmp = ST7735Ctx.Panel == HannStar_Panel ? 
-					(uint8_t)OrientationTab[ST7735Ctx.Orientation][0] | LCD_BGR :
-					(uint8_t)OrientationTab[ST7735Ctx.Orientation][0] | LCD_RGB;
-
-    if(st7735_write_reg(&pObj->Ctx, ST7735_MADCTL, &tmp, 1) != ST7735_OK)
-    {
-      ret = ST7735_ERROR;
-    }/* Set Cursor */
-    else if(ST7735_SetCursor(pObj, Xpos, y_pos) != ST7735_OK)
-    {
-      ret = ST7735_ERROR;
     }
-    else
-    {
-      do
-      {
-        pixel_val[0] = *(pbmp + 1);
-        pixel_val[1] = *(pbmp);
-        if(st7735_send_data(&pObj->Ctx, pixel_val, 2U) != ST7735_OK)
-        {
-          ret = ST7735_ERROR;
-          break;
-        }
-        counter +=2U;
-        pbmp += 2;
-      }while(counter < size);
 
-			tmp = ST7735Ctx.Panel == HannStar_Panel ? 
-						(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_BGR :
-						(uint8_t)OrientationTab[ST7735Ctx.Orientation][1] | LCD_RGB;
-      if(st7735_write_reg(&pObj->Ctx, ST7735_MADCTL, &tmp, 1) != ST7735_OK)
-      {
-        ret = ST7735_ERROR;
-      }
-      else
-      {
-        if(ST7735_SetDisplayWindow(pObj, 0U, 0U, ST7735Ctx.Width, ST7735Ctx.Height) != ST7735_OK)
-        {
-          ret = ST7735_ERROR;
-        }
-      }
-    }
-  }
-
-  return ret;
+    ST7735_Unselect();
 }
 
-/**
-  * @brief  Draws a full RGB rectangle
-  * @param  pObj Component object
-  * @param  Xpos   specifies the X position.
-  * @param  Ypos   specifies the Y position.
-  * @param  pData  pointer to RGB data
-  * @param  Width  specifies the rectangle width.
-  * @param  Height Specifies the rectangle height
-  * @retval The component status
-  */
-int32_t ST7735_FillRGBRect(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pData, uint32_t Width, uint32_t Height)
-{
-  int32_t ret = ST7735_OK;
-  static uint8_t pdata[640];
-  uint8_t *rgb_data = pData;
-  uint32_t i, j;
+void ST7735_FillRectangleFast(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+    // clipping
+    if ((x >= ST7735_WIDTH) || (y >= ST7735_HEIGHT)) return;
+    if ((x + w - 1) >= ST7735_WIDTH) w = ST7735_WIDTH - x;
+    if ((y + h - 1) >= ST7735_HEIGHT) h = ST7735_HEIGHT - y;
 
-  if(((Xpos + Width) > ST7735Ctx.Width) || ((Ypos + Height) > ST7735Ctx.Height))
-  {
-    ret = ST7735_ERROR;
-  }/* Set Cursor */
-  else
-  {
-    for(j = 0; j < Height; j++)
-    {
-      if(ST7735_SetCursor(pObj, Xpos, Ypos+j) != ST7735_OK)
-      {
-        ret = ST7735_ERROR;
-      }
-      else
-      {
-        for(i = 0; i < Width; i++)
-        {
-          pdata[2U*i] = (uint8_t)(*(rgb_data));
-          pdata[(2U*i) + 1U] = (uint8_t)(*(rgb_data + 1));
-          rgb_data +=2;
-        }
-        if(st7735_send_data(&pObj->Ctx, (uint8_t*)&pdata[0], 2U*Width) != ST7735_OK)
-        {
-          ret = ST7735_ERROR;
-        }
-      }
-    }
-  }
+    ST7735_Select();
+    ST7735_SetAddressWindow(x, y, x + w - 1, y + h - 1);
 
-  return ret;
+    // Prepare whole line in a single buffer
+    uint8_t pixel[] = {color >> 8, color & 0xFF};
+    uint8_t *line = malloc(w * sizeof(pixel));
+    for (x = 0; x < w; ++x)
+        memcpy(line + x * sizeof(pixel), pixel, sizeof(pixel));
+
+    HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_SET);
+    for (y = h; y > 0; y--)
+        HAL_SPI_Transmit(&ST7735_SPI_PORT, line, w * sizeof(pixel), HAL_MAX_DELAY);
+
+    free(line);
+    ST7735_Unselect();
 }
 
-/**
-  * @brief  Draw Horizontal line.
-  * @param  pObj Component object
-  * @param  Xpos   specifies the X position.
-  * @param  Ypos   specifies the Y position.
-  * @param  Length specifies the Line length.
-  * @param  Color  Specifies the RGB color in RGB565 format
-  * @retval The component status
-  */
-int32_t ST7735_DrawHLine(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color)
-{
-  int32_t ret = ST7735_OK;
-  uint32_t i;
-  static uint8_t pdata[640];
-	
-  if((Xpos + Length) > ST7735Ctx.Width)
-  {
-    ret = ST7735_ERROR;
-  }/* Set Cursor */
-  else if(ST7735_SetCursor(pObj, Xpos, Ypos) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-    for(i = 0; i < Length; i++)
-    {
-      /* Exchange LSB and MSB to fit LCD specification */
-      pdata[2U*i] = (uint8_t)(Color >> 8);
-      pdata[(2U*i) + 1U] = (uint8_t)(Color);
-			
-//      pdata[(2U*i) + 1U] = (uint8_t)(Color >> 8);
-//      pdata[2U*i] = (uint8_t)(Color);			
-    }
-    if(st7735_send_data(&pObj->Ctx, (uint8_t*)&pdata[0], 2U*Length) != ST7735_OK)
-    {
-      ret = ST7735_ERROR;
-    }
-  }
-
-  return ret;
+void ST7735_FillScreen(uint16_t color) {
+    ST7735_FillRectangle(0, 0, ST7735_WIDTH, ST7735_HEIGHT, color);
 }
 
-/**
-  * @brief  Draw vertical line.
-  * @param  pObj Component object
-  * @param  Color    Specifies the RGB color
-  * @param  Xpos     specifies the X position.
-  * @param  Ypos     specifies the Y position.
-  * @param  Length   specifies the Line length.
-  * @retval The component status
-  */
-int32_t ST7735_DrawVLine(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color)
-{
-  int32_t ret = ST7735_OK;
-  uint32_t counter;
-
-  if((Ypos + Length) > ST7735Ctx.Height)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-    for(counter = 0; counter < Length; counter++)
-    {
-      if(ST7735_SetPixel(pObj, Xpos, Ypos + counter, Color) != ST7735_OK)
-      {
-        ret = ST7735_ERROR;
-        break;
-      }
-    }
-  }
-
-  return ret;
+void ST7735_FillScreenFast(uint16_t color) {
+    ST7735_FillRectangleFast(0, 0, ST7735_WIDTH, ST7735_HEIGHT, color);
 }
 
-/**
-  * @brief  Fill rectangle
-  * @param  pObj Component object
-  * @param  Xpos X position
-  * @param  Ypos Y position
-  * @param  Width Rectangle width
-  * @param  Height Rectangle height
-  * @param  Color Draw color
-  * @retval Component status
-  */
-int32_t ST7735_FillRect(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height, uint32_t Color)
-{
-  int32_t ret = ST7735_OK;
-  uint32_t i, y_pos = Ypos;
+void ST7735_DrawImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t *data) {
+    if ((x >= ST7735_WIDTH) || (y >= ST7735_HEIGHT)) return;
+    if ((x + w - 1) >= ST7735_WIDTH) return;
+    if ((y + h - 1) >= ST7735_HEIGHT) return;
 
-  for(i = 0; i < Height; i++)
-  {
-    if(ST7735_DrawHLine(pObj, Xpos, y_pos, Width, Color) != ST7735_OK)
-    {
-      ret = ST7735_ERROR;
-      break;
-    }
-    y_pos++;
-  }
-
-  return ret;
+    ST7735_Select();
+    ST7735_SetAddressWindow(x, y, x + w - 1, y + h - 1);
+    ST7735_WriteData((uint8_t *) data, sizeof(uint16_t) * w * h);
+    ST7735_Unselect();
 }
 
-/**
-  * @brief  Write pixel.
-  * @param  pObj Component object
-  * @param  Xpos specifies the X position.
-  * @param  Ypos specifies the Y position.
-  * @param  Color the RGB pixel color in RGB565 format
-  * @retval The component status
-  */
-int32_t ST7735_SetPixel(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Color)
-{
-  int32_t ret = ST7735_OK;
-  uint16_t color;
-
-  /* Exchange LSB and MSB to fit LCD specification */
-  color = (uint16_t)((uint16_t)Color << 8);
-  color |= (uint16_t)((uint16_t)(Color >> 8));
-
-  if((Xpos >= ST7735Ctx.Width) || (Ypos >= ST7735Ctx.Height))
-  {
-    ret = ST7735_ERROR;
-  }/* Set Cursor */
-  else if(ST7735_SetCursor(pObj, Xpos, Ypos) != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-  else
-  {
-    /* Write RAM data */
-    if(st7735_send_data(&pObj->Ctx, (uint8_t*)&color, 2) != ST7735_OK)
-    {
-      ret = ST7735_ERROR;
-    }
-  }
-
-  return ret;
+void ST7735_InvertColors(bool invert) {
+    ST7735_Select();
+    ST7735_WriteCommand(invert ? ST7735_INVON : ST7735_INVOFF);
+    ST7735_Unselect();
 }
 
-/**
-  * @brief  Read pixel.
-  * @param  pObj Component object
-  * @param  Xpos specifies the X position.
-  * @param  Ypos specifies the Y position.
-  * @param  Color the RGB pixel color in RGB565 format
-  * @retval The component status
-  */
-int32_t ST7735_GetPixel(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t *Color)
-{
-  int32_t ret;
-  uint8_t pixel_lsb, pixel_msb;
-  uint8_t tmp;
-
-
-  /* Set Cursor */
-  ret = ST7735_SetCursor(pObj, Xpos, Ypos);
-
-  /* Prepare to read LCD RAM */
-  ret += st7735_read_reg(&pObj->Ctx, ST7735_READ_RAM, &tmp);   /* RAM read data command */
-
-  /* Dummy read */
-  ret += st7735_recv_data(&pObj->Ctx, &tmp, 1);
-
-  /* Read first part of the RGB888 data */
-  ret += st7735_recv_data(&pObj->Ctx, &pixel_lsb, 1);
-  /* Read first part of the RGB888 data */
-  ret += st7735_recv_data(&pObj->Ctx, &pixel_msb, 1);
-
-  *Color = ((uint32_t)(pixel_lsb)) + ((uint32_t)(pixel_msb) << 8);
-
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
+void ST7735_SetGamma(GammaDef gamma) {
+    ST7735_Select();
+    ST7735_WriteCommand(ST7735_GAMSET);
+    ST7735_WriteData((uint8_t *) &gamma, sizeof(gamma));
+    ST7735_Unselect();
 }
-
-/**
-  * @brief  Get the LCD pixel Width.
-  * @param  pObj Component object
-  * @retval The Lcd Pixel Width
-  */
-int32_t ST7735_GetXSize(ST7735_Object_t *pObj, uint32_t *XSize)
-{
-  (void)pObj;
-
-  *XSize = ST7735Ctx.Width;
-
-  return ST7735_OK;
-}
-
-/**
-  * @brief  Get the LCD pixel Height.
-  * @param  pObj Component object
-  * @retval The Lcd Pixel Height
-  */
-int32_t ST7735_GetYSize(ST7735_Object_t *pObj, uint32_t *YSize)
-{
-  (void)pObj;
-
-  *YSize = ST7735Ctx.Height;
-
-  return ST7735_OK;
-}
-
-/**
-  * @}
-  */
-
-/** @defgroup ST7735_Private_Functions  Private Functions
-  * @{
-  */
-/**
-  * @brief  Sets a display window
-  * @param  Xpos   specifies the X bottom left position.
-  * @param  Ypos   specifies the Y bottom left position.
-  * @param  Height display window height.
-  * @param  Width  display window width.
-  * @retval Component status
-  */
-static int32_t ST7735_SetDisplayWindow(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height)
-{
-  int32_t ret;
-  uint8_t tmp;
-
-	/* Cursor calibration */
-	if(ST7735Ctx.Orientation <= ST7735_ORIENTATION_PORTRAIT_ROT180) {
-		if (ST7735Ctx.Type == ST7735_0_9_inch_screen) {		//0.96 ST7735
-			if (ST7735Ctx.Panel == HannStar_Panel) {
-				Xpos += 26;
-				Ypos += 1;
-			} else {		//BOE Panel
-				Xpos += 24;
-				Ypos += 0;
-			}
-		}
-    else if(ST7735Ctx.Type == ST7735_1_8a_inch_screen){
-      if (ST7735Ctx.Panel == BOE_Panel) {
-				Xpos += 2;
-				Ypos += 1;
-			}
-    }
-	} else {
-		if (ST7735Ctx.Type == ST7735_0_9_inch_screen) {
-			if (ST7735Ctx.Panel == HannStar_Panel) {		//0.96 ST7735
-				Xpos += 1;
-				Ypos += 26;
-			} else {		//BOE Panel
-				Xpos += 1;
-				Ypos += 24;
-			}
-		}
-    else if(ST7735Ctx.Type == ST7735_1_8a_inch_screen){
-      if (ST7735Ctx.Panel == BOE_Panel) {
-				Xpos += 1;
-				Ypos += 2;
-			}
-    }
-	}
-	
-  /* Column addr set, 4 args, no delay: XSTART = Xpos, XEND = (Xpos + Width - 1) */
-  ret = st7735_write_reg(&pObj->Ctx, ST7735_CASET, &tmp, 0);
-  tmp = (uint8_t)(Xpos >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)(Xpos & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)((Xpos + Width - 1U) >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)((Xpos + Width - 1U) & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-  /* Row addr set, 4 args, no delay: YSTART = Ypos, YEND = (Ypos + Height - 1) */
-  ret += st7735_write_reg(&pObj->Ctx, ST7735_RASET, &tmp, 0);
-  tmp = (uint8_t)(Ypos >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)(Ypos & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)((Ypos + Height - 1U) >> 8U);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-  tmp = (uint8_t)((Ypos + Height - 1U) & 0xFFU);
-  ret += st7735_send_data(&pObj->Ctx, &tmp, 1);
-
-  if(ret != ST7735_OK)
-  {
-    ret = ST7735_ERROR;
-  }
-
-  return ret;
-}
-
-/**
-  * @brief  Wrap component ReadReg to Bus Read function
-  * @param  Handle  Component object handle
-  * @param  Reg  The target register address to write
-  * @param  pData  The target register value to be written
-  * @retval Component error status
-  */
-static int32_t ST7735_ReadRegWrap(void *Handle, uint8_t Reg, uint8_t* pData)
-{
-  ST7735_Object_t *pObj = (ST7735_Object_t *)Handle;
-
-  return pObj->IO.ReadReg(Reg, pData);
-}
-
-/**
-  * @brief  Wrap component WriteReg to Bus Write function
-  * @param  handle  Component object handle
-  * @param  Reg  The target register address to write
-  * @param  pData  The target register value to be written
-  * @param  Length  buffer size to be written
-  * @retval Component error status
-  */
-static int32_t ST7735_WriteRegWrap(void *Handle, uint8_t Reg, uint8_t *pData, uint32_t Length)
-{
-  ST7735_Object_t *pObj = (ST7735_Object_t *)Handle;
-
-  return pObj->IO.WriteReg(Reg, pData, Length);
-}
-
-
-/**
-  * @brief  Wrap component SendData to Bus Write function
-  * @param  handle  Component object handle
-  * @param  pData  The target register value to be written
-  * @retval Component error status
-  */
-static int32_t ST7735_SendDataWrap(void *Handle, uint8_t *pData, uint32_t Length)
-{
-  ST7735_Object_t *pObj = (ST7735_Object_t *)Handle;
-
-  return pObj->IO.SendData(pData, Length);
-}
-
-/**
-  * @brief  Wrap component SendData to Bus Write function
-  * @param  handle  Component object handle
-  * @param  pData  The target register value to be written
-  * @retval Component error status
-  */
-static int32_t ST7735_RecvDataWrap(void *Handle, uint8_t *pData, uint32_t Length)
-{
-  ST7735_Object_t *pObj = (ST7735_Object_t *)Handle;
-
-  return pObj->IO.RecvData(pData, Length);
-}
-
-/**
-  * @brief  ST7735 delay
-  * @param  Delay  Delay in ms
-  * @retval Component error status
-  */
-static int32_t ST7735_IO_Delay(ST7735_Object_t *pObj, uint32_t Delay)
-{
-  uint32_t tickstart;
-  tickstart = pObj->IO.GetTick();
-  while((pObj->IO.GetTick() - tickstart) < Delay)
-  {
-  }
-  return ST7735_OK;
-}
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-

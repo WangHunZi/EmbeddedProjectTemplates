@@ -1,237 +1,269 @@
-/**
-  ******************************************************************************
-  * @file    st7735.h
-  * @author  MCD Application Team
-  * @brief   This file contains all the functions prototypes for the st7735.c
-  *          driver.
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+/* vim: set ai et ts=4 sw=4: */
+#ifndef __ST7735_H__
+#define __ST7735_H__
 
-/* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef ST7735_H
-#define ST7735_H
+#include "fonts.h"
+#include "spi.h"
+#include <stdbool.h>
+
+#define ST7735_MADCTL_MY 0x80
+#define ST7735_MADCTL_MX 0x40
+#define ST7735_MADCTL_MV 0x20
+#define ST7735_MADCTL_ML 0x10
+#define ST7735_MADCTL_RGB 0x00
+#define ST7735_MADCTL_BGR 0x08
+#define ST7735_MADCTL_MH 0x04
+
+/*** Redefine if necessary ***/
+#define ST7735_SPI_PORT hspi4
+extern SPI_HandleTypeDef ST7735_SPI_PORT;
+
+#define ST7735_RES_Pin GPIO_PIN_10
+#define ST7735_RES_GPIO_Port GPIOE
+#define ST7735_CS_Pin GPIO_PIN_11
+#define ST7735_CS_GPIO_Port GPIOE
+#define ST7735_DC_Pin GPIO_PIN_13
+#define ST7735_DC_GPIO_Port GPIOE
+
+// AliExpress/eBay 1.8" display, default orientation
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 160
+#define ST7735_XSTART 0
+#define ST7735_YSTART 0
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MY)
+*/
+
+// AliExpress/eBay 1.8" display, rotate right
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 0
+#define ST7735_YSTART 0
+#define ST7735_ROTATION (ST7735_MADCTL_MY | ST7735_MADCTL_MV)
+*/
+
+// AliExpress/eBay 1.8" display, rotate left
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 0
+#define ST7735_YSTART 0
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MV)
+*/
+
+// AliExpress/eBay 1.8" display, upside down
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 160
+#define ST7735_XSTART 0
+#define ST7735_YSTART 0
+#define ST7735_ROTATION (0)
+*/
+
+// WaveShare ST7735S-based 1.8" display, default orientation
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH 128
+#define ST7735_HEIGHT 160
+#define ST7735_XSTART 2
+#define ST7735_YSTART 1
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MY | ST7735_MADCTL_RGB)
+
+// WaveShare ST7735S-based 1.8" display, rotate right
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 1
+#define ST7735_YSTART 2
+#define ST7735_ROTATION (ST7735_MADCTL_MY | ST7735_MADCTL_MV | ST7735_MADCTL_RGB)
+*/
+
+// WaveShare ST7735S-based 1.8" display, rotate left
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 1
+#define ST7735_YSTART 2
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MV | ST7735_MADCTL_RGB)
+*/
+
+// WaveShare ST7735S-based 1.8" display, upside down
+/*
+#define ST7735_IS_160X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 160
+#define ST7735_XSTART 2
+#define ST7735_YSTART 1
+#define ST7735_ROTATION (ST7735_MADCTL_RGB)
+*/
+
+// 1.44" display, default orientation
+/*
+#define ST7735_IS_128X128 1
+#define ST7735_WIDTH 128
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 2
+#define ST7735_YSTART 3
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MY | ST7735_MADCTL_BGR)
+*/
+
+// 1.44" display, rotate right
+/*
+#define ST7735_IS_128X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 3
+#define ST7735_YSTART 2
+#define ST7735_ROTATION (ST7735_MADCTL_MY | ST7735_MADCTL_MV | ST7735_MADCTL_BGR)
+*/
+
+// 1.44" display, rotate left
+/*
+#define ST7735_IS_128X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 1
+#define ST7735_YSTART 2
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MV | ST7735_MADCTL_BGR)
+*/
+
+// 1.44" display, upside down
+/*
+#define ST7735_IS_128X128 1
+#define ST7735_WIDTH  128
+#define ST7735_HEIGHT 128
+#define ST7735_XSTART 2
+#define ST7735_YSTART 1
+#define ST7735_ROTATION (ST7735_MADCTL_BGR)
+*/
+
+// mini 160x80 display (it's unlikely you want the default orientation)
+/*
+#define ST7735_IS_160X80 1
+#define ST7735_XSTART 26
+#define ST7735_YSTART 1
+#define ST7735_WIDTH  80
+#define ST7735_HEIGHT 160 
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MY | ST7735_MADCTL_BGR)
+*/
+
+// mini 160x80, rotate left
+/*
+#define ST7735_IS_160X80 1
+#define ST7735_XSTART 1
+#define ST7735_YSTART 26
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 80
+#define ST7735_ROTATION (ST7735_MADCTL_MX | ST7735_MADCTL_MV | ST7735_MADCTL_BGR)
+*/
+
+// mini 160x80, rotate right
+/*
+#define ST7735_IS_160X80 1
+#define ST7735_XSTART 1
+#define ST7735_YSTART 26
+#define ST7735_WIDTH  160
+#define ST7735_HEIGHT 80
+#define ST7735_ROTATION (ST7735_MADCTL_MY | ST7735_MADCTL_MV | ST7735_MADCTL_BGR)
+*/
+
+/****************************/
+
+#define ST7735_NOP 0x00
+#define ST7735_SWRESET 0x01
+#define ST7735_RDDID 0x04
+#define ST7735_RDDST 0x09
+
+#define ST7735_SLPIN 0x10
+#define ST7735_SLPOUT 0x11
+#define ST7735_PTLON 0x12
+#define ST7735_NORON 0x13
+
+#define ST7735_INVOFF 0x20
+#define ST7735_INVON 0x21
+#define ST7735_GAMSET 0x26
+#define ST7735_DISPOFF 0x28
+#define ST7735_DISPON 0x29
+#define ST7735_CASET 0x2A
+#define ST7735_RASET 0x2B
+#define ST7735_RAMWR 0x2C
+#define ST7735_RAMRD 0x2E
+
+#define ST7735_PTLAR 0x30
+#define ST7735_COLMOD 0x3A
+#define ST7735_MADCTL 0x36
+
+#define ST7735_FRMCTR1 0xB1
+#define ST7735_FRMCTR2 0xB2
+#define ST7735_FRMCTR3 0xB3
+#define ST7735_INVCTR 0xB4
+#define ST7735_DISSET5 0xB6
+
+#define ST7735_PWCTR1 0xC0
+#define ST7735_PWCTR2 0xC1
+#define ST7735_PWCTR3 0xC2
+#define ST7735_PWCTR4 0xC3
+#define ST7735_PWCTR5 0xC4
+#define ST7735_VMCTR1 0xC5
+
+#define ST7735_RDID1 0xDA
+#define ST7735_RDID2 0xDB
+#define ST7735_RDID3 0xDC
+#define ST7735_RDID4 0xDD
+
+#define ST7735_PWCTR6 0xFC
+
+#define ST7735_GMCTRP1 0xE0
+#define ST7735_GMCTRN1 0xE1
+
+// Color definitions
+#define ST7735_BLACK 0x0000
+#define ST7735_BLUE 0x001F
+#define ST7735_RED 0xF800
+#define ST7735_GREEN 0x07E0
+#define ST7735_CYAN 0x07FF
+#define ST7735_MAGENTA 0xF81F
+#define ST7735_YELLOW 0xFFE0
+#define ST7735_WHITE 0xFFFF
+#define ST7735_COLOR565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3))
+
+typedef enum {
+    GAMMA_10 = 0x01,
+    GAMMA_25 = 0x02,
+    GAMMA_22 = 0x04,
+    GAMMA_18 = 0x08
+} GammaDef;
 
 #ifdef __cplusplus
- extern "C" {
-#endif 
+extern "C" {
+#endif
 
-/* Includes ------------------------------------------------------------------*/
-#include "st7735_reg.h"
-#include <stddef.h>
+// call before initializing any SPI devices
+void ST7735_Unselect();
 
-/** @addtogroup Peripherals
-  * @{
-  */ 
+void ST7735_Init(void);
+void ST7735_DrawPixel(uint16_t x, uint16_t y, uint16_t color);
+void ST7735_WriteString(uint16_t x, uint16_t y, const char *str, FontDef font, uint16_t color, uint16_t bgcolor);
+void ST7735_FillRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void ST7735_FillRectangleFast(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void ST7735_FillScreen(uint16_t color);
+void ST7735_FillScreenFast(uint16_t color);
+void ST7735_DrawImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint16_t *data);
+void ST7735_InvertColors(bool invert);
+void ST7735_SetGamma(GammaDef gamma);
+void ST7735_Select();
+void ST7735_SetAddressWindow(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+void ST7735_WriteData(uint8_t *buff, size_t buff_size);
+void ST7735_WriteCommand(uint8_t cmd);
 
-/** @addtogroup Components
-  * @{
-  */ 
-  
-/** @defgroup ST7735 ST7735
-  * @{
-  */
-
-/** @defgroup ST7735_Exported_Types Exported Types
-  * @{
-  */
-typedef int32_t (*ST7735_Init_Func)     (void);
-typedef int32_t (*ST7735_DeInit_Func)   (void);
-typedef int32_t (*ST7735_GetTick_Func)  (void);
-typedef int32_t (*ST7735_Delay_Func)    (uint32_t);
-typedef int32_t (*ST7735_WriteReg_Func) (uint8_t, uint8_t*, uint32_t);
-typedef int32_t (*ST7735_ReadReg_Func)  (uint8_t, uint8_t*);
-typedef int32_t (*ST7735_SendData_Func) (uint8_t*, uint32_t);
-typedef int32_t (*ST7735_RecvData_Func) (uint8_t*, uint32_t);
-
-typedef struct
-{
-  ST7735_Init_Func          Init;
-  ST7735_DeInit_Func        DeInit;
-  uint16_t                  Address;  
-  ST7735_WriteReg_Func      WriteReg;
-  ST7735_ReadReg_Func       ReadReg;
-  ST7735_SendData_Func      SendData;
-  ST7735_RecvData_Func      RecvData;
-  ST7735_GetTick_Func       GetTick; 
-} ST7735_IO_t;
-
- 
-typedef struct
-{
-  ST7735_IO_t         IO;
-  st7735_ctx_t        Ctx;   
-  uint8_t             IsInitialized;
-} ST7735_Object_t;
-/** @addtogroup ST7735
-  * @brief      This file provides a set of functions needed to drive the
-  *             ST7735 LCD.
-  * @{
-  */
-
-/** @defgroup ST7735_Private_Types Private Types
-  * @{
-  */
-typedef struct
-{
-  uint32_t        Width;
-  uint32_t        Height;
-  uint32_t        Orientation;
-	uint8_t 				Panel;
-	uint8_t					Type;
-} ST7735_Ctx_t;
-
-typedef struct
-{
-  /* Control functions */
-  int32_t (*Init             )(ST7735_Object_t*, uint32_t, ST7735_Ctx_t*);
-  int32_t (*DeInit           )(ST7735_Object_t*);
-  int32_t (*ReadID           )(ST7735_Object_t*, uint32_t*);
-  int32_t (*DisplayOn        )(ST7735_Object_t*);
-  int32_t (*DisplayOff       )(ST7735_Object_t*);
-  int32_t (*SetBrightness    )(ST7735_Object_t*, uint32_t); 
-  int32_t (*GetBrightness    )(ST7735_Object_t*, uint32_t*);   
-  int32_t (*SetOrientation   )(ST7735_Object_t*, ST7735_Ctx_t*);
-  int32_t (*GetOrientation   )(ST7735_Object_t*, uint32_t*);
-
-  /* Drawing functions*/
-  int32_t ( *SetCursor       ) (ST7735_Object_t*, uint32_t, uint32_t); 
-  int32_t ( *DrawBitmap      ) (ST7735_Object_t*, uint32_t, uint32_t, uint8_t *);
-  int32_t ( *FillRGBRect     ) (ST7735_Object_t*, uint32_t, uint32_t, uint8_t*, uint32_t, uint32_t);    
-  int32_t ( *DrawHLine       ) (ST7735_Object_t*, uint32_t, uint32_t, uint32_t, uint32_t);
-  int32_t ( *DrawVLine       ) (ST7735_Object_t*, uint32_t, uint32_t, uint32_t, uint32_t);
-  int32_t ( *FillRect        ) (ST7735_Object_t*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
-  int32_t ( *GetPixel        ) (ST7735_Object_t*, uint32_t, uint32_t, uint32_t*);
-  int32_t ( *SetPixel        ) (ST7735_Object_t*, uint32_t, uint32_t, uint32_t);
-  int32_t ( *GetXSize        ) (ST7735_Object_t*, uint32_t *);
-  int32_t ( *GetYSize        ) (ST7735_Object_t*, uint32_t *);
-  
-}ST7735_LCD_Drv_t;
-  
-/**
-  * @}
-  */ 
-
-/** @defgroup ST7735_Exported_Constants Exported Constants
-  * @{
-  */
-
-/** 
-  * @brief  ST7735 Size  
-  */  
-#define ST7735_OK                (0)
-#define ST7735_ERROR             (-1)
-
-/** 
-  * @brief  ST7735 ID  
-  */  
-#define  ST7735_ID              0x5CU
-  
-/** 
-  * @brief  ST7735 1.8 inch Size  
-  */  
-#define  ST7735_1_8_WIDTH           128U
-#define  ST7735_1_8_HEIGHT          160U
-/** 
-  * @brief  ST7735 0.9 inch Size  
-  */  
-#define  ST7735_0_9_WIDTH           80U
-#define  ST7735_0_9_HEIGHT          160U
-/**
- *  @brief LCD_OrientationTypeDef
- *  Possible values of Display Orientation
- */
-#define ST7735_ORIENTATION_PORTRAIT         0x00U /* Portrait orientation choice of LCD screen               */
-#define ST7735_ORIENTATION_PORTRAIT_ROT180  0x01U /* Portrait rotated 180? orientation choice of LCD screen  */
-#define ST7735_ORIENTATION_LANDSCAPE        0x02U /* Landscape orientation choice of LCD screen              */
-#define ST7735_ORIENTATION_LANDSCAPE_ROT180 0x03U /* Landscape rotated 180? orientation choice of LCD screen */
-
-/**
- *  @brief  Possible values of pixel data format (ie color coding) 
- */
-#define ST7735_FORMAT_RBG444                0x03U /* Pixel format chosen is RGB444 : 12 bpp */   
-#define ST7735_FORMAT_RBG565                0x05U /* Pixel format chosen is RGB565 : 16 bpp */
-#define ST7735_FORMAT_RBG666                0x06U /* Pixel format chosen is RGB666 : 18 bpp */
-#define ST7735_FORMAT_DEFAULT               ST7735_FORMAT_RBG565
-
-/**
- *  @brief  LCD_Type_Define
- */
-#define ST7735_1_8_inch_screen							0x00U
-#define ST7735_0_9_inch_screen							0x01U 
-#define ST7735_1_8a_inch_screen							0x02U
-/**
- *  @brief  LCD_Panel
- */
-#define HannStar_Panel											0x00U
-#define BOE_Panel														0x01U
-
-/**
- *  @brief  LCD RGB or BGR
- */
-#define LCD_RGB														0x00U
-#define LCD_BGR														0x08U
-/**
-  * @}
-  */
-  
-/** @defgroup ST7735_Exported_Functions Exported Functions
-  * @{
-  */ 
-int32_t ST7735_RegisterBusIO (ST7735_Object_t *pObj, ST7735_IO_t *pIO);
-int32_t ST7735_Init(ST7735_Object_t *pObj, uint32_t ColorCoding, ST7735_Ctx_t *ST7735_driver);
-int32_t ST7735_DeInit(ST7735_Object_t *pObj);
-int32_t ST7735_ReadID(ST7735_Object_t *pObj, uint32_t *Id);
-int32_t ST7735_DisplayOn(ST7735_Object_t *pObj);
-int32_t ST7735_DisplayOff(ST7735_Object_t *pObj);
-int32_t ST7735_SetBrightness(ST7735_Object_t *pObj, uint32_t Brightness);
-int32_t ST7735_GetBrightness(ST7735_Object_t *pObj, uint32_t *Brightness);
-int32_t ST7735_SetOrientation(ST7735_Object_t *pObj, ST7735_Ctx_t *pDriver);
-int32_t ST7735_GetOrientation(ST7735_Object_t *pObj, uint32_t *Orientation);
-
-int32_t ST7735_SetCursor(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos);
-int32_t ST7735_DrawBitmap(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pBmp);
-int32_t ST7735_FillRGBRect(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint8_t *pData, uint32_t Width, uint32_t Height);
-int32_t ST7735_DrawHLine(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color);
-int32_t ST7735_DrawVLine(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Length, uint32_t Color);
-int32_t ST7735_FillRect(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height, uint32_t Color);
-int32_t ST7735_SetPixel(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t Color);
-int32_t ST7735_GetPixel(ST7735_Object_t *pObj, uint32_t Xpos, uint32_t Ypos, uint32_t *Color);
-int32_t ST7735_GetXSize(ST7735_Object_t *pObj, uint32_t *XSize);
-int32_t ST7735_GetYSize(ST7735_Object_t *pObj, uint32_t *YSize);
-
-extern ST7735_LCD_Drv_t   ST7735_LCD_Driver;
-
-/**
-  * @}
-  */ 
-      
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ST7735_H */
-
-/**
-  * @}
-  */ 
-
-/**
-  * @}
-  */ 
-
-/**
-  * @}
-  */
-  
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+#endif// __ST7735_H__
