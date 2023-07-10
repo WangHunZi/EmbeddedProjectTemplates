@@ -17,6 +17,13 @@
 
 在CLion中完成了BootLoader的实现，花费了很多时间和精力。最后能够跑通的时候还是觉得很高兴的。
 
-# ExFalshLVGL
+# ExFlashLVGL
 
-实现外部Flash中跑LVGL。
+实现将LVGL下载到外部Flash中。
+
+# InternalFlash
+
+写了段程序测量并验证了`STM32H750VBT6的内部`Flash，我的开发板是1015KB，超过此容量就会进入到`HardFault_Handler`。
+
+具体请查看对应文件夹里的文档——[测量验证STM32H750VBT6的内部Flash](InternalFlash/测量验证STM32H750VBT6的内部Flash.md)
+
