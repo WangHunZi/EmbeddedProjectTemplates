@@ -23,7 +23,7 @@
 
 # InternalFlash
 
-写了段程序测量并验证了`STM32H750VBT6的内部`Flash，我的开发板是1015KB，超过此容量就会进入到`HardFault_Handler`。
+写了段程序测量并验证了`STM32H750VBT6的内部`Flash，我的开发板是1016KB，超过此容量就会进入到`HardFault_Handler`。
 
 具体请查看对应文件夹里的文档——[测量验证STM32H750VBT6的内部Flash](InternalFlash/测量验证STM32H750VBT6的内部Flash.md)
 
