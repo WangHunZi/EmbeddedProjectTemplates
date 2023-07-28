@@ -277,6 +277,10 @@ void ST7735_WriteCommand(uint8_t cmd);
 
 void ST7725_WriteCommand_Data(uint8_t cmd, uint8_t *buff, size_t buff_size);
 
+void ST7735_WriteData8(uint8_t data);
+
+void ST7735_WriteData16(uint16_t data);
+
 #ifdef __cplusplus
 }
 #endif

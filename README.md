@@ -1,29 +1,42 @@
-# 说明
+# About
 
-本项目主要的包含一些驱动程序、外设的使用。
+[English]() | [中文](README-CN.md)
 
-**软件环境：** Windows 11、CLion、STM32CubeMX、openocd
+This repository contains some driver code and hardware peripheral code.
 
-**硬件环境：** WeAct STM32H750VBT6、STM32F407ZGT6【最小系统板和正点原子开发板】。
+**Soft Environment：** 
+
+Windows 11, CLion2023, STM32CubeMX 6.8.1, openocd 0.12.0
+
+**Hardware Environment:**
+
+Weact Studio STM32H750VBT6, STM32F407ZGT6
 
 
 # LVGLSimulator
 
-在CLion中实现LVGL模拟器环境。对应的文章：[在CLion中搭建LVGL模拟器](https://blog.csdn.net/qq_44656481/article/details/125208978?spm=1001.2014.3001.5501)
+Implemented LVGL Simulator in CLion, and here is the corresponding blog link:
+
+[How to implement the LVGL simulator in CLion ?](LVGLSimulator/How to implement the LVGL simulator in CLion.md)
 
 # BootLoader_Application
 
-具体请查看对应文件夹里的文档——[在CLion上实现STM32H750VBT6的Bootloader.md](BootLoader_Application/在CLion上实现STM32H750VBT6的Bootloader.md)
+Here is specfic documentation for this project:
+[How to implement STM32H750VBT6's Bootloader in CLion?](BootLoader_Application/How to implement Bootloader on STM32H750VBT6 in CLion.md)
 
-在CLion中完成了BootLoader的实现，花费了很多时间和精力。最后能够跑通的时候还是觉得很高兴的。
+It took a lot of time and experience to realize this Bootloader, but I still feel very happy that is was successfully completed in the end.
 
 # ExFlashLVGL
 
-实现将LVGL下载到外部Flash中。
+This project implements downloading LVGL to external Flash.
 
 # InternalFlash
 
-写了段程序测量并验证了`STM32H750VBT6的内部`Flash，我的开发板是1,024KB，超过此容量就会进入到`HardFault_Handler`。
+Write a program to measure and verify the internal Flash size of STM32H750VBT6. My development board is 1024KB, if it exceeds this range, it will enter HardFault_Handler.
 
-具体请查看对应文件夹里的文档——[测量验证STM32H750VBT6的内部Flash](InternalFlash/测量验证STM32H750VBT6的内部Flash.md)
+Here is a documentation in the project file:
+[How to measure the internal flash size and verify it?](InternalFlash/How to measure the internal flash size and verify it.md)
 
+# TODO-List
+
+- [ ] Translate Blog into English

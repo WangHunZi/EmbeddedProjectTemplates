@@ -105,6 +105,15 @@ void ST7735_WriteData(uint8_t *buff, size_t buff_size) {
     HAL_SPI_Transmit_DMA(&ST7735_SPI_PORT, buff, buff_size);
 }
 
+void ST7735_WriteData8(uint8_t data) {
+    HAL_SPI_Transmit_DMA(&ST7735_SPI_PORT, &data, 1);
+}
+
+void ST7735_WriteData16(uint16_t data) {
+    ST7735_WriteData8(data >> 8);
+    ST7735_WriteData8(data);
+}
+
 void ST7725_WriteCommand_Data(uint8_t cmd, uint8_t *buff, size_t buff_size) {
     HAL_GPIO_WritePin(ST7735_DC_GPIO_Port, ST7735_DC_Pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit_DMA(&ST7735_SPI_PORT, &cmd, sizeof(cmd));
