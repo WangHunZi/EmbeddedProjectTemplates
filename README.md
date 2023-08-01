@@ -17,12 +17,12 @@ Weact Studio STM32H750VBT6, STM32F407ZGT6
 
 Implemented LVGL Simulator in CLion, and here is the corresponding blog link:
 
-[How to implement the LVGL simulator in CLion ?](LVGLSimulator/How to implement the LVGL simulator in CLion.md)
+[How to implement the LVGL simulator in CLion ?](LVGLSimulator/How%20to%20implement%20the%20LVGL%20simulator%20in%20CLion.md)
 
 # BootLoader_Application
 
 Here is specfic documentation for this project:
-[How to implement STM32H750VBT6's Bootloader in CLion?](BootLoader_Application/How to implement Bootloader on STM32H750VBT6 in CLion.md)
+[How to implement STM32H750VBT6's Bootloader in CLion?](BootLoader_Application/How%20to%20implement%20Bootloader%20on%20STM32H750VBT6%20in%20CLion.md)
 
 It took a lot of time and experience to realize this Bootloader, but I still feel very happy that is was successfully completed in the end.
 
@@ -35,7 +35,7 @@ This project implements downloading LVGL to external Flash.
 Write a program to measure and verify the internal Flash size of STM32H750VBT6. My development board is 1024KB, if it exceeds this range, it will enter HardFault_Handler.
 
 Here is a documentation in the project file:
-[How to measure the internal flash size and verify it?](InternalFlash/How to measure the internal flash size and verify it.md)
+[How to measure the internal flash size and verify it?](InternalFlash/How%20to%20measure%20the%20internal%20flash%20size%20and%20verify%20it.md)
 
 # TODO-List
 
