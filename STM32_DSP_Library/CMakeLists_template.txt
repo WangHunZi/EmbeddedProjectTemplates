@@ -51,7 +51,7 @@ endif ()
 set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS/")
 add_subdirectory(CMSIS-DSP/Source bin_dsp)
 
-include_directories(${includes} CMSIS-DSP/Include CMSIS-DSP/PrivateInclude)
+include_directories(${includes})
 
 add_definitions(${defines})
 
