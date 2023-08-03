@@ -39,15 +39,9 @@ Here is a documentation in the project file:
 
 # STM32_DSP_Library
 
-Port the latest arm-dsp library to STM32H750 using CLion. The newest library includes window functions that are not present in STM32CubeMX.
+Port the latest arm-dsp library to STM32H750 using CLion. The newest library includes window functions that is not present in STM32CubeMX.
 
-It's important to note that directly adding "CMSIS-DSP/Source/*.*" to file(GLOB_RECURSE SOURCES) in CMakeLists.txt can lead to compilation issues. This is because some files within the CMSIS-DSP\Source directory utilize #include "xxxx.c", causing multiple definition errors during compilation.
-
-For instance, BasicMathFunctions.c and BasicMathFunctionsF16.c housed under the BasicMathFunctions directory include some source files, leading to these complications.
-
-The solution I found was to delete the files that share the same name. This approach might seem a bit crude, but after numerous attempts, it proved to be the simplest method.
-
-I've also reported this issue to Arm.
+[Ported the lateset DSP library to STM32H750 on CLion](STM32_DSP_Library/Ported%20the%20lateset%20DSP%20Library%20to%20STM32H750%20on%20CLion.md)
 
 # TODO-List
 

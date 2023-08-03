@@ -17,7 +17,7 @@
       add_subdirectory(CMSIS-DSP/Source bin_dsp)
       ```
 
-    - 在`add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})`之后添加`target_link_libraries(${PROJECT_NAME}.elf PUBLIC CMSISDSP)`。目的是把CMSISDSP连接到`${PROJECT_NAME}.elf`，这样一来，代码中就可以调用CMSISDSP的相关API了。
+    - 在`add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})`之后添加`target_link_libraries(${PROJECT_NAME}.elf PUBLIC CMSISDSP)`。目的是把CMSISDSP链接到`${PROJECT_NAME}.elf`，这样一来，代码中就可以调用CMSISDSP的相关API了。
 
       ```cmake
       add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})
