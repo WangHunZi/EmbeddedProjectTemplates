@@ -41,7 +41,7 @@ Here is a documentation in the project file:
 
 Port the latest arm-dsp library to STM32H750 using CLion. The newest library includes window functions that is not present in STM32CubeMX.
 
-[Ported the lateset DSP library to STM32H750 on CLion](STM32_DSP_Library/Ported%20the%20lateset%20DSP%20Library%20to%20STM32H750%20on%20CLion.md)
+[Ported the lateset DSP library to STM32H750 on CLion](STM32_DSP_Library/Ported%20the%20lateset%20DSP%20library%20to%20STM32H750%20on%20CLion.md)
 
 # TODO-List
 
