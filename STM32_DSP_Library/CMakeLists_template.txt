@@ -51,11 +51,11 @@ endif ()
 set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS/")
 add_subdirectory(CMSIS-DSP/Source bin_dsp)
 
-include_directories(${includes})
+include_directories(${includes} CMSIS-DSP/Include FFT/Include)
 
 add_definitions(${defines})
 
-file(GLOB_RECURSE SOURCES ${sources} "CMSIS-DSP/Source/*.*")
+file(GLOB_RECURSE SOURCES ${sources} "FFT/*.*")
 
 set(LINKER_SCRIPT $${CMAKE_SOURCE_DIR}/${linkerScript})
 

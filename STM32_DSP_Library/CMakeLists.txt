@@ -52,10 +52,10 @@ endif ()
 set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS/")
 add_subdirectory(CMSIS-DSP/Source bin_dsp)
 
-include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_HAL_Driver/Inc/Legacy Drivers/CMSIS/Device/ST/STM32H7xx/Include Drivers/CMSIS/Include)
+include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_HAL_Driver/Inc/Legacy Drivers/CMSIS/Device/ST/STM32H7xx/Include Drivers/CMSIS/Include CMSIS-DSP/Include FFT/Include)
 add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H750xx)
 
-file(GLOB_RECURSE SOURCES "Core/*.*" "Drivers/*.*")
+file(GLOB_RECURSE SOURCES "Core/*.*" "Drivers/*.*" "FFT/*.*")
 
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32H750VBTX_FLASH.ld)
 
